@@ -44,6 +44,7 @@
     "eslint-plugin-nuxt": "3.1.0",
     "jest": "27.5.1",
     "siroc": "0.16.0",
-    "vue-jest": "3.0.7"
+    "vue-jest": "3.0.7",
+    "vue-template-compiler": "^2.6.14"
   }
 }
