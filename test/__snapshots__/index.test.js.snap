@@ -1,0 +1,24 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`DruxtAuth Nuxt module Defaults 1`] = `
+Object {
+  "redirect": Object {
+    "callback": "/callback",
+    "logout": "/",
+  },
+  "strategies": Object {
+    "drupal-authorization_code": Object {
+      "clientId": undefined,
+      "codeChallengeMethod": "S256",
+      "endpoints": Object {
+        "authorization": "undefined/oauth/authorize",
+        "token": "undefined/oauth/token",
+        "userInfo": "undefined/oauth/userinfo",
+      },
+      "grantType": "authorization_code",
+      "responseType": "code",
+      "scheme": "oauth2",
+    },
+  },
+}
+`;
