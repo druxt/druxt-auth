@@ -1,7 +1,6 @@
 # DruxtAuth
 
 [![npm](https://badgen.net/npm/v/druxt-auth)](https://www.npmjs.com/package/druxt-auth)
-[![CircleCI](https://circleci.com/gh/druxt/druxt-auth.svg?style=svg)](https://circleci.com/gh/druxt/druxt-auth)
 [![Known Vulnerabilities](https://snyk.io/test/github/druxt/druxt-auth/badge.svg?targetFile=package.json)](https://snyk.io/test/github/druxt/druxt-auth?targetFile=package.json)
 [![codecov](https://codecov.io/gh/druxt/druxt-auth/branch/develop/graph/badge.svg)](https://codecov.io/gh/druxt/druxt-auth)
 
