@@ -2,7 +2,8 @@ image:
   file: .gitpod/Dockerfile
 
 tasks:
-  - init: |
+  - before: git pull -f origin main:main || true
+    init: |
       # Setup Gitpod .env
       $GITPOD_REPO_ROOT/.gitpod/scripts/env-setup.sh
 
