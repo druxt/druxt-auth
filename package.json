@@ -45,6 +45,7 @@
     "eslint": "8.15.0",
     "eslint-plugin-nuxt": "3.2.0",
     "jest": "27.5.1",
+    "jest-junit": "^14.0.0",
     "siroc": "0.16.0",
     "vue-jest": "3.0.7",
     "vue-template-compiler": "^2.6.14"
