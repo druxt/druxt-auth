@@ -26,6 +26,7 @@
     "build": "siroc build",
     "build:watch": "siroc build --watch",
     "changeset": "changeset",
+    "example": "cd example/nuxt && yarn && yarn dev",
     "lint": "eslint --ext .js,.vue src",
     "test": "jest",
     "test:watch": "jest --watch"

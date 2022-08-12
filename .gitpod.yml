@@ -31,6 +31,8 @@ tasks:
       # Setup Nuxt
       $GITPOD_REPO_ROOT/.gitpod/scripts/nuxt-setup.sh
 
+      cd $GITPOD_REPO_ROOT
+
 # VScode xdebug extension
 vscode:
   extensions:
