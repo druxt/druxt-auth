@@ -26,3 +26,6 @@ drush simple-oauth:generate-keys ../keys
 
 # Enable authenticated editting via JSON:API.
 drush -y config:set jsonapi.settings read_only 0
+
+# Change admin password to password
+drush upwd admin password
