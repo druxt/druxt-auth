@@ -1,4 +1,4 @@
-name: drupal
+name: druxt-auth
 type: drupal9
 docroot: web
 php_version: "7.4"
@@ -82,7 +82,7 @@ web_environment: []
 # Please take care with this because it can cause great confusion.
 
 # upload_dir: custom/upload/dir
-# would set the destination path for ddev import-files to <docroot>/custom/upload/dir 
+# would set the destination path for ddev import-files to <docroot>/custom/upload/dir
 
 # working_dir:
 #   web: /var/www/html

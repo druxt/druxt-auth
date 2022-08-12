@@ -32,6 +32,9 @@ const NuxtModule = function (moduleOptions = {}) {
     },
   }
 
+  // Enable Vuex Store.
+  this.options.store = true
+
   // Add required modules.
   this.addModule('@nuxtjs/auth-next')
 
@@ -53,9 +56,6 @@ const NuxtModule = function (moduleOptions = {}) {
       })
     }
   })
-
-  // Enable Vuex Store.
-  this.options.store = true
 }
 
 export default NuxtModule
