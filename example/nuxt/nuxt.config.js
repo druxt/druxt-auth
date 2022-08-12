@@ -31,10 +31,10 @@ export default {
   components: true,
 
   // Modules for dev and build (recommended): https://go.nuxtjs.dev/config-modules
-  buildModules: ['druxt-auth'],
+  buildModules: ['druxt-auth', 'druxt'],
 
   // Modules: https://go.nuxtjs.dev/config-modules
-  modules: ['@nuxtjs/tailwindcss'],
+  // modules: [],
 
   // DruxtJS: https://druxtjs.org
   druxt: {
@@ -46,6 +46,4 @@ export default {
   // Build Configuration: https://go.nuxtjs.dev/config-build
   build: {
   },
-
-  ignore: '.git',
 }
