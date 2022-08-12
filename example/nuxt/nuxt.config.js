@@ -31,23 +31,16 @@ export default {
   components: true,
 
   // Modules for dev and build (recommended): https://go.nuxtjs.dev/config-modules
-  buildModules: [
-    'druxt-auth',
-    'druxt-site'
-  ],
+  buildModules: ['druxt-auth'],
 
   // Modules: https://go.nuxtjs.dev/config-modules
-  modules: [],
+  modules: ['@nuxtjs/tailwindcss'],
 
   // DruxtJS: https://druxtjs.org
   druxt: {
     baseUrl,
     // Enable OAuth2 authentication.
     auth: { clientId: process.env.OAUTH_CLIENT_ID },
-    // Disable deprecated Entity fields.
-    entity: { components: { fields: false }},
-    // Set the default theme to render Site regions.
-    site: { theme: 'bartik' },
   },
 
   // Build Configuration: https://go.nuxtjs.dev/config-build

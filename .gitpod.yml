@@ -15,6 +15,9 @@ tasks:
 
       # Installing Nuxt
       $GITPOD_REPO_ROOT/.gitpod/scripts/nuxt-setup.sh
+
+      # Build module
+      cd $GITPOD_REPO_ROOT && yarn && yarn build
     command: |
       # Setup Gitpod .env
       $GITPOD_REPO_ROOT/.gitpod/scripts/env-setup.sh
@@ -27,9 +30,6 @@ tasks:
 
       # Setup Nuxt
       $GITPOD_REPO_ROOT/.gitpod/scripts/nuxt-setup.sh
-
-      # Start Nuxt
-      cd $GITPOD_REPO_ROOT/example/nuxt && NUXT_TELEMETRY_DISABLED=1 npm run dev
 
 # VScode xdebug extension
 vscode:

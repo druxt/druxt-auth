@@ -53,6 +53,9 @@ const NuxtModule = function (moduleOptions = {}) {
       })
     }
   })
+
+  // Enable Vuex Store.
+  this.options.store = true
 }
 
 export default NuxtModule
