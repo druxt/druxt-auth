@@ -4,7 +4,7 @@
 
 set -eu -o pipefail
 
-DRUXT_DIR="${GITPOD_REPO_ROOT}/nuxt"
+DRUXT_DIR="${GITPOD_REPO_ROOT}/example/nuxt"
 
 # Set up Nuxt
 cd "$DRUXT_DIR" && echo "BASE_URL=$(gp url 8080)" > .env

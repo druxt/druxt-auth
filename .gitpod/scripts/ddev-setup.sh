@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-DRUPAL_DIR="${GITPOD_REPO_ROOT}/drupal"
+DRUPAL_DIR="${GITPOD_REPO_ROOT}/example/drupal"
 
 # Misc housekeeping before start
 ddev config global --instrumentation-opt-in=true
