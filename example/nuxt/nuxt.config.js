@@ -40,7 +40,10 @@ export default {
   druxt: {
     baseUrl,
     // Enable OAuth2 authentication.
-    auth: { clientId: process.env.OAUTH_CLIENT_ID },
+    auth: {
+      clientId: process.env.OAUTH_CLIENT_ID,
+      clientSecret: 'secret'
+    },
   },
 
   // Build Configuration: https://go.nuxtjs.dev/config-build

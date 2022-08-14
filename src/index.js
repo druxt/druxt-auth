@@ -1,3 +1,6 @@
+import axios from 'axios'
+import bodyParser from 'body-parser'
+
 // eslint-disable-next-line no-unused-vars
 const NuxtModule = function (moduleOptions = {}) {
   const options = this.options.druxt || {}
@@ -28,9 +31,63 @@ const NuxtModule = function (moduleOptions = {}) {
         codeChallengeMethod: 'S256',
       },
 
+      'drupal-password': {
+        scheme: 'refresh',
+        endpoints: {
+          token: baseUrl + '/oauth/token',
+          login: {
+            baseURL: ''
+          },
+          refresh: {
+            baseURL: ''
+          },
+        },
+        grantType: 'password'
+      },
+
       ...(this.options.auth || {}).strategies
     },
   }
+
+  // Add password grant server middleware.
+  this.options.serverMiddleware.unshift({
+    path: 'api/auth/login',
+    handler: async (req, res, next) => {
+      if (req.method !== 'POST') {
+        return next()
+      }
+
+      const formMiddleware = bodyParser.json()
+      await formMiddleware(req, res, async () => {
+        const data = req.body
+
+        if (data.grant_type === 'password' && (!data.username || !data.password)) {
+          return next(new Error('Invalid username or password'))
+        }
+
+        try {
+          const response = await axios.post(
+            this.options.auth.strategies['drupal-password'].endpoints.token,
+            {
+              client_id: (options.auth || {}).clientId || process.env.DRUXT_AUTH_CLIENT_ID,
+              client_secret: (options.auth || {}).clientSecret || process.env.DRUXT_AUTH_CLIENT_SECRET,
+              ...data
+            },
+            {
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+              },
+            }
+          )
+          console.log(response.data)
+        } catch(err) {
+          console.error({ ...err.response.data, debug: Object.keys(err.response) })
+          res.statusCode = err.response.status
+          res.end(JSON.stringify({ ...err.response.data, debug: Object.keys(err.response.request) }))
+        }
+      })
+    }
+  })
 
   // Enable Vuex Store.
   this.options.store = true
