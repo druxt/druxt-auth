@@ -48,11 +48,25 @@ _Note:_ Replace `[DRUPAL_CONSUMER_UUID]` with the UUID of the consumer created i
 
 The DruxtAuth module installs and configures the **nuxt/auth** module for your Druxt site.
 
-It adds a `drupal-authorization_code` auth strategy that can be used via the `$auth` plugin:
+It adds two auth strategies  that can be used via the `$auth` plugin:
+- `drupal-authorization_code`  
+  Uses
 
-```js
-this.$nuxt.$auth.loginWith('drupal-authorization_code')
-```
+  ```js
+  this.$nuxt.$auth.loginWith('drupal-authorization_code')
+  ```
+
+- `drupal-password`
+
+  ```js
+  this.$nuxt.$auth.loginWith('drupal-password', {
+    username: '',
+    password: ''
+  })
+  ```
+
+  _Note:_ Nuxt must be running in SSR mode for password grant, and client secret must be set.
+
 
 - See the **nuxt/auth** documentation form more details: https://auth.nuxtjs.org/api/auth
 
@@ -61,4 +75,5 @@ this.$nuxt.$auth.loginWith('drupal-authorization_code')
 
 | Option | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `druxt.auth.cliendId` | `string` | Yes | `undefined` | The Drupal Consumer UUID |
+| `druxt.auth.clientId` | `string` | Yes | `undefined` | The Drupal Consumer UUID |
+| `druxt.auth.clientSecret` | `string` | No | `undefined` | The Drupal Consumer API secret. Required for Password grant. |
