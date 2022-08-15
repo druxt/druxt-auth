@@ -8,16 +8,50 @@ Object {
   },
   "strategies": Object {
     "drupal-authorization_code": Object {
-      "clientId": undefined,
+      "clientId": "mock-client-id",
       "codeChallengeMethod": "S256",
       "endpoints": Object {
-        "authorization": "undefined/oauth/authorize",
-        "token": "undefined/oauth/token",
-        "userInfo": "undefined/oauth/userinfo",
+        "authorization": "https://demo-api.druxtjs.org/oauth/authorize",
+        "token": "https://demo-api.druxtjs.org/oauth/token",
+        "userInfo": "https://demo-api.druxtjs.org/oauth/userinfo",
       },
       "grantType": "authorization_code",
       "responseType": "code",
       "scheme": "oauth2",
+    },
+    "drupal-password": Object {
+      "endpoints": Object {
+        "login": Object {
+          "baseURL": "",
+          "url": "/_auth/drupal-password/token",
+        },
+        "logout": false,
+        "refresh": Object {
+          "baseURL": "",
+          "url": "/_auth/drupal-password/token",
+        },
+        "token": "https://demo-api.druxtjs.org/oauth/token",
+        "user": Object {
+          "method": "post",
+          "url": "https://demo-api.druxtjs.org/oauth/userinfo",
+        },
+      },
+      "grantType": "password",
+      "refreshToken": Object {
+        "data": "refresh_token",
+        "maxAge": 2592000,
+        "property": "refresh_token",
+      },
+      "scheme": "refresh",
+      "token": Object {
+        "maxAge": 31536000,
+        "name": "Authorization",
+        "property": "access_token",
+        "type": "Bearer",
+      },
+      "user": Object {
+        "property": false,
+      },
     },
   },
 }

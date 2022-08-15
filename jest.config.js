@@ -3,9 +3,9 @@ module.exports = {
   coverageDirectory: './coverage/',
   coveragePathIgnorePatterns: ['/dist/'],
   moduleFileExtensions: ['js', 'json', 'vue'],
-  modulePathIgnorePatterns: ['/examples/'],
+  modulePathIgnorePatterns: ['/example/'],
   testEnvironment: 'jsdom',
-  testPathIgnorePatterns: ['/examples/'],
+  testPathIgnorePatterns: ['/example/'],
   transform: {
     '^.+\\.(js)$': 'esbuild-jest',
     '^.+\\.(mjs)$': 'esbuild-jest',
