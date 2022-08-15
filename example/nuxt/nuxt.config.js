@@ -1,5 +1,5 @@
 require('dotenv').config({ path: '../.env' })
-const baseUrl = process.env.BASE_URL || 'https://druxt-auth.ddev.site'
+const baseUrl = process.env.BASE_URL || 'http://druxt-auth.ddev.site'
 
 export default {
   // Global page headers: https://go.nuxtjs.dev/config-head
@@ -31,17 +31,19 @@ export default {
   components: true,
 
   // Modules for dev and build (recommended): https://go.nuxtjs.dev/config-modules
-  buildModules: ['druxt-auth', 'druxt'],
+  buildModules: [
+    ['druxt-auth', {
+      clientId: process.env.OAUTH_CLIENT_ID,
+      clientSecret: 'secret'
+    }],
+    'druxt'
+  ],
 
   // Modules: https://go.nuxtjs.dev/config-modules
   // modules: [],
 
   // DruxtJS: https://druxtjs.org
-  druxt: {
-    baseUrl,
-    // Enable OAuth2 authentication.
-    auth: { clientId: process.env.OAUTH_CLIENT_ID },
-  },
+  druxt: { baseUrl },
 
   // Build Configuration: https://go.nuxtjs.dev/config-build
   build: {

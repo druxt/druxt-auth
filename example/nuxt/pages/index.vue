@@ -2,9 +2,13 @@
   <div>
     <template v-if="!this.$nuxt.$auth.loggedIn">
       <h1>You are not logged in :(</h1>
-      <button @click="$auth.loginWith('drupal-authorization_code')">Click here to log in</button>
-      <pre><code>Username: admin
-Password: password</code></pre>
+      <button @click="$auth.loginWith('drupal-authorization_code')">Click here to log in with Authorization grant</button>
+      <details open style="border: 1px solid; padding: 0.5rem; margin-top: 1rem;">
+        <summary>Login with Password grant</summary>
+        <label>Username: <input v-model="username" /></label><br />
+        <label>Password: <input v-model="password" /></label><br />
+        <button @click="login">Log in</button>
+      </details>
     </template>
 
     <template v-else>
@@ -14,3 +18,22 @@ Password: password</code></pre>
     </template>
   </div>
 </template>
+
+<script>
+export default {
+  data: () => ({
+    username: 'admin',
+    password: 'password'
+  }),
+  methods: {
+    login() {
+      this.$auth.loginWith('drupal-password', {
+        data: {
+          username: this.username,
+          password: this.password
+        }
+      })
+    }
+  }
+}
+</script>

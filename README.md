@@ -23,36 +23,59 @@ Add module to `nuxt.config.js`
 
 ```js
 module.exports = {
-  buildModules: ['druxt-auth'],
+  buildModules: [
+    'druxt',
+    ['druxt-auth', {
+      clientId: '[DRUPAL_CONSUMER_UUID]',
+      clientSecret: '[DRUPAL_CONSUMER_SECRET]',
+    }]
+  ],
   druxt: {
-    baseUrl: 'https://demo-api.druxtjs.org',
-    auth: {
-      clientId: '[DRUPAL_CONSUMER_UUID]'
-    },
+    baseUrl: 'https://demo-api.druxtjs.org'
   },
 }
 ```
 
-_Note:_ Replace `[DRUPAL_CONSUMER_UUID]` with the UUID of the consumer created in the following step.
+_Note:_ Replace `[DRUPAL_CONSUMER_UUID]` and `[DRUPAL_CONSUMER_SECRET]` with the details from the consumer created in the following step.
 
 ### Drupal
 
 1. Download, install and setup the [Simple OAuth module](https://www.drupal.org/project/simple_oauth).
-2. Create a Consumer with:
-    - New Secret: _leave this empty_
-    - Is Confidential: _unchecked_
-    - Use PKCE?: _checked_
-    - Redirect URI: `[FRONTEND_URL]/callback` (e.g., `http://localhost:3000/callback`)
+2. Create a Consumer depending on your desired authorization strategy:
+
+    - **Authorization Code** grant:
+        - New Secret: _leave this empty_
+        - Is Confidential: _unchecked_
+        - Use PKCE?: _checked_
+        - Redirect URI: `[FRONTEND_URL]/callback` (e.g., `http://localhost:3000/callback`)
+
+    - **Password** grant:
+        - New Secret: _provide a secure secret_
+        - Is Confidential: _checked_
+        - Redirect URI: `[FRONTEND_URL]/callback` (e.g., `http://localhost:3000/callback`)
 
 ## Usage
 
 The DruxtAuth module installs and configures the **nuxt/auth** module for your Druxt site.
 
-It adds a `drupal-authorization_code` auth strategy that can be used via the `$auth` plugin:
+It adds two auth strategies  that can be used via the `$auth` plugin:
+- `drupal-authorization_code`  
+  ```js
+  this.$nuxt.$auth.loginWith('drupal-authorization_code')
+  ```
 
-```js
-this.$nuxt.$auth.loginWith('drupal-authorization_code')
-```
+- `drupal-password`
+  ```js
+  this.$nuxt.$auth.loginWith('drupal-password', {
+    data: {
+      username: '',
+      password: ''
+    }
+  })
+  ```
+
+  _Note:_ Nuxt must be running in SSR mode for password grant, and client secret must be set.
+
 
 - See the **nuxt/auth** documentation form more details: https://auth.nuxtjs.org/api/auth
 
@@ -61,4 +84,5 @@ this.$nuxt.$auth.loginWith('drupal-authorization_code')
 
 | Option | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `druxt.auth.cliendId` | `string` | Yes | `undefined` | The Drupal Consumer UUID |
+| `clientId` | `string` | Yes | `undefined` | The Drupal Consumer UUID |
+| `clientSecret` | `string` | No | `undefined` | The Drupal Consumer API secret. Required for Password grant. |
