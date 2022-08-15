@@ -60,18 +60,17 @@ The DruxtAuth module installs and configures the **nuxt/auth** module for your D
 
 It adds two auth strategies  that can be used via the `$auth` plugin:
 - `drupal-authorization_code`  
-  Uses
-
   ```js
   this.$nuxt.$auth.loginWith('drupal-authorization_code')
   ```
 
 - `drupal-password`
-
   ```js
   this.$nuxt.$auth.loginWith('drupal-password', {
-    username: '',
-    password: ''
+    data: {
+      username: '',
+      password: ''
+    }
   })
   ```
 
