@@ -1,5 +1,5 @@
 require('dotenv').config({ path: '../.env' })
-const baseUrl = process.env.BASE_URL || 'https://druxt-auth.ddev.site'
+const baseUrl = process.env.BASE_URL || 'http://druxt-auth.ddev.site'
 
 export default {
   // Global page headers: https://go.nuxtjs.dev/config-head

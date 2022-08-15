@@ -79,11 +79,11 @@ const NuxtModule = function (moduleOptions = {}) {
               },
             }
           )
-          console.log(response.data)
+          // console.log('response', Object.keys(response), response)
         } catch(err) {
-          console.error({ ...err.response.data, debug: Object.keys(err.response) })
-          res.statusCode = err.response.status
-          res.end(JSON.stringify({ ...err.response.data, debug: Object.keys(err.response.request) }))
+          console.error(err)
+          res.statusCode = (err.response || {}).statusCode || 500
+          res.end(JSON.stringify({ ...((err.response || {}).data || {}) }))
         }
       })
     }
