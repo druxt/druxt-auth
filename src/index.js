@@ -31,16 +31,32 @@ const NuxtModule = function (moduleOptions = {}) {
         codeChallengeMethod: 'S256',
       },
 
+      // Password grant with API secret.
       'drupal-password': {
         scheme: 'refresh',
+        token: {
+          property: 'access_token',
+          type: 'Bearer',
+          name: 'Authorization',
+          maxAge: 60 * 60 * 24 * 365
+        },
+        refreshToken: {
+          property: 'refresh_token',
+          data: 'refresh_token',
+          maxAge: 60 * 60 * 24 * 30
+        },
         endpoints: {
           token: baseUrl + '/oauth/token',
           login: {
-            baseURL: ''
+            baseURL: '',
+            url: '/_auth/drupal-password/token'
           },
+          logout: false,
           refresh: {
-            baseURL: ''
+            baseURL: '',
+            url: '/_auth/drupal-password/token'
           },
+          user: baseUrl + '/oauth/userinfo',
         },
         grantType: 'password'
       },
@@ -51,7 +67,7 @@ const NuxtModule = function (moduleOptions = {}) {
 
   // Add password grant server middleware.
   this.options.serverMiddleware.unshift({
-    path: 'api/auth/login',
+    path: '/_auth/drupal-password/token',
     handler: async (req, res, next) => {
       if (req.method !== 'POST') {
         return next()
@@ -66,21 +82,29 @@ const NuxtModule = function (moduleOptions = {}) {
         }
 
         try {
+          // Build POST data string.
+          const postData = new URLSearchParams({
+            client_id: (options.auth || {}).clientId || process.env.DRUXT_AUTH_CLIENT_ID,
+            client_secret: (options.auth || {}).clientSecret || process.env.DRUXT_AUTH_CLIENT_SECRET,
+            ...data
+          }).toString()
+
+          // Request token,
           const response = await axios.post(
             this.options.auth.strategies['drupal-password'].endpoints.token,
-            {
-              client_id: (options.auth || {}).clientId || process.env.DRUXT_AUTH_CLIENT_ID,
-              client_secret: (options.auth || {}).clientSecret || process.env.DRUXT_AUTH_CLIENT_SECRET,
-              ...data
-            },
+            postData,
             {
               headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
               },
             }
           )
-          // console.log('response', Object.keys(response), response)
+
+          // Return response data.
+          console.log('RESPONSE', JSON.stringify(response.data))
+          res.end(JSON.stringify(response.data))
         } catch(err) {
+          // Handle error.
           console.error(err)
           res.statusCode = (err.response || {}).statusCode || 500
           res.end(JSON.stringify({ ...((err.response || {}).data || {}) }))
