@@ -3,7 +3,21 @@ import bodyParser from 'body-parser'
 
 // eslint-disable-next-line no-unused-vars
 const NuxtModule = function (moduleOptions = {}) {
-  const options = this.options.druxt || {}
+  const options = {
+    ...this.options.druxt || {},
+    auth: {
+      ...(this.options.druxt || {}).auth || {},
+      clientId: undefined,
+      clientSecret: undefined,
+      ...moduleOptions,
+    }
+  }
+
+  // Check if cliend ID is provided.
+  if (!options.auth.clientId) {
+    throw new Error('DruxtAuth requires a clientId to be provided.')
+  }
+
   const { baseUrl } = options
 
   // @nuxtjs/auth-next module settings.

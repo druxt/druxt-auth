@@ -31,20 +31,19 @@ export default {
   components: true,
 
   // Modules for dev and build (recommended): https://go.nuxtjs.dev/config-modules
-  buildModules: ['druxt-auth', 'druxt'],
+  buildModules: [
+    ['druxt-auth', {
+      clientId: process.env.OAUTH_CLIENT_ID,
+      clientSecret: 'secret'
+    }],
+    'druxt'
+  ],
 
   // Modules: https://go.nuxtjs.dev/config-modules
   // modules: [],
 
   // DruxtJS: https://druxtjs.org
-  druxt: {
-    baseUrl,
-    // Enable OAuth2 authentication.
-    auth: {
-      clientId: process.env.OAUTH_CLIENT_ID,
-      clientSecret: 'secret'
-    },
-  },
+  druxt: { baseUrl },
 
   // Build Configuration: https://go.nuxtjs.dev/config-build
   build: {
