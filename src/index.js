@@ -56,7 +56,13 @@ const NuxtModule = function (moduleOptions = {}) {
             baseURL: '',
             url: '/_auth/drupal-password/token'
           },
-          user: baseUrl + '/oauth/userinfo',
+          user: {
+            url: baseUrl + '/oauth/userinfo',
+            method: 'post'
+          },
+        },
+        user: {
+          property: false
         },
         grantType: 'password'
       },
@@ -101,7 +107,6 @@ const NuxtModule = function (moduleOptions = {}) {
           )
 
           // Return response data.
-          console.log('RESPONSE', JSON.stringify(response.data))
           res.end(JSON.stringify(response.data))
         } catch(err) {
           // Handle error.
