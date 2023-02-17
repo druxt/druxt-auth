@@ -43,7 +43,12 @@ export default {
   // modules: [],
 
   // DruxtJS: https://druxtjs.org
-  druxt: { baseUrl },
+  druxt: {
+    baseUrl,
+
+    // Uncomment to enable API Proxy mode.
+    // proxy: { api: true }
+  },
 
   // Build Configuration: https://go.nuxtjs.dev/config-build
   build: {

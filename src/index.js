@@ -18,7 +18,31 @@ const NuxtModule = function (moduleOptions = {}) {
     throw new Error('DruxtAuth requires a clientId to be provided.')
   }
 
-  const { baseUrl } = options
+  let { baseUrl } = options
+
+  // Nuxt proxy integration.
+  const proxy = (options.proxy || {}).api
+  if (proxy) {
+    if (this.options.proxy) {
+      if (Array.isArray(this.options.proxy)) {
+        this.options.proxy = [
+          ...this.options.proxy,
+          baseUrl + '/oauth/userinfo'
+        ]
+      }
+      else {
+        this.options.proxy = {
+          ...this.options.proxy,
+          '/oauth/userinfo': baseUrl
+        }
+      }
+    }
+    else {
+      this.options.proxy = {
+        '/oauth/userinfo': baseUrl
+      }
+    }
+  }
 
   // @nuxtjs/auth-next module settings.
   this.options.auth = {
@@ -37,7 +61,7 @@ const NuxtModule = function (moduleOptions = {}) {
         endpoints: {
           authorization: baseUrl + '/oauth/authorize',
           token: baseUrl + '/oauth/token',
-          userInfo: baseUrl + '/oauth/userinfo',
+          userInfo: (!proxy ? baseUrl : '') + '/oauth/userinfo',
         },
         clientId: (options.auth || {}).clientId || process.env.DRUXT_AUTH_CLIENT_ID,
         responseType: 'code',
@@ -71,7 +95,7 @@ const NuxtModule = function (moduleOptions = {}) {
             url: '/_auth/drupal-password/token'
           },
           user: {
-            url: baseUrl + '/oauth/userinfo',
+            url: (!proxy ? baseUrl : '') + '/oauth/userinfo',
             method: 'post'
           },
         },
