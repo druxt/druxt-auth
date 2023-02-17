@@ -1,3 +1,5 @@
+/* global beforeEach, describe, expect, jest, test */
+
 import DruxtAuthModule from '../src'
 
 let mock
@@ -79,5 +81,47 @@ describe('DruxtAuth Nuxt module', () => {
     }
     await mock.options.serverMiddleware[0].handler(req, res, next)
     expect(res.end).toBeCalledWith('true')
+  })
+
+  test('API Proxy - default', async () => {
+    mock.options.druxt.proxy = { api: true }
+
+    // Call Druxt module with module options.
+    DruxtAuthModule.call(mock, {
+      clientId: 'mock-client-id'
+    })
+
+    // Expect the @nuxtjs/auth-next module to be correctly configured.
+    expect(mock.options.auth).toMatchSnapshot()
+  })
+
+  test('API Proxy - Object', async () => {
+    mock.options.druxt.proxy = { api: true }
+    mock.options.proxy = {
+      '/test': 'https://api.umami.demo.druxtjs.org'
+    }
+
+    // Call Druxt module with module options.
+    DruxtAuthModule.call(mock, {
+      clientId: 'mock-client-id'
+    })
+
+    // Expect the @nuxtjs/auth-next module to be correctly configured.
+    expect(mock.options.auth).toMatchSnapshot()
+  })
+
+  test('API Proxy - Array', async () => {
+    mock.options.druxt.proxy = { api: true }
+    mock.options.proxy = [
+      'https://api.umami.demo.druxtjs.org/test'
+    ]
+
+    // Call Druxt module with module options.
+    DruxtAuthModule.call(mock, {
+      clientId: 'mock-client-id'
+    })
+
+    // Expect the @nuxtjs/auth-next module to be correctly configured.
+    expect(mock.options.auth).toMatchSnapshot()
   })
 })
