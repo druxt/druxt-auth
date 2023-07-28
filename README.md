@@ -28,6 +28,7 @@ module.exports = {
     ['druxt-auth', {
       clientId: '[DRUPAL_CONSUMER_UUID]',
       clientSecret: '[DRUPAL_CONSUMER_SECRET]',
+      scope: ['default'],
     }]
   ],
   druxt: {
@@ -86,3 +87,4 @@ It adds two auth strategies  that can be used via the `$auth` plugin:
 | --- | --- | --- | --- | --- |
 | `clientId` | `string` | Yes | `undefined` | The Drupal Consumer UUID |
 | `clientSecret` | `string` | No | `undefined` | The Drupal Consumer API secret. Required for Password grant. |
+| `scope` | `array` | No | `undefined` | The OAuth Scopes to be used for the Drupal Consumer. |
