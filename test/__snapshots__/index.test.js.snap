@@ -18,6 +18,7 @@ Object {
       "grantType": "authorization_code",
       "responseType": "code",
       "scheme": "oauth2",
+      "scope": undefined,
     },
     "drupal-password": Object {
       "endpoints": Object {
@@ -75,6 +76,7 @@ Object {
       "grantType": "authorization_code",
       "responseType": "code",
       "scheme": "oauth2",
+      "scope": undefined,
     },
     "drupal-password": Object {
       "endpoints": Object {
@@ -132,6 +134,7 @@ Object {
       "grantType": "authorization_code",
       "responseType": "code",
       "scheme": "oauth2",
+      "scope": undefined,
     },
     "drupal-password": Object {
       "endpoints": Object {
@@ -189,6 +192,7 @@ Object {
       "grantType": "authorization_code",
       "responseType": "code",
       "scheme": "oauth2",
+      "scope": undefined,
     },
     "drupal-password": Object {
       "endpoints": Object {
