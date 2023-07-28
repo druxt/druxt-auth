@@ -1,5 +1,11 @@
 # druxt-auth
 
+## 0.4.0
+
+### Minor Changes
+
+- b07c40b: feat(#35): added support for OAuth Scopes / Simple OAuth2 6.x
+
 ## 0.3.0
 
 ### Minor Changes

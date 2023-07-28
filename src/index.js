@@ -9,6 +9,7 @@ const NuxtModule = function (moduleOptions = {}) {
       ...(this.options.druxt || {}).auth || {},
       clientId: undefined,
       clientSecret: undefined,
+      scope: undefined,
       ...moduleOptions,
     }
   }
@@ -65,6 +66,7 @@ const NuxtModule = function (moduleOptions = {}) {
         },
         clientId: (options.auth || {}).clientId || process.env.DRUXT_AUTH_CLIENT_ID,
         responseType: 'code',
+        scope: (options.auth || {}).scope,
         grantType: 'authorization_code',
         codeChallengeMethod: 'S256',
       },
