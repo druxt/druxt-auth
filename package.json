@@ -43,7 +43,7 @@
     "druxt": "0.23.0",
     "esbuild-jest": "0.5.0",
     "eslint": "8.45.0",
-    "eslint-plugin-nuxt": "3.2.0",
+    "eslint-plugin-nuxt": "4.0.0",
     "jest": "27.5.1",
     "jest-junit": "^14.0.1",
     "siroc": "0.16.0",
