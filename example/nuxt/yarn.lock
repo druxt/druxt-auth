@@ -3227,7 +3227,12 @@ core-js-compat@^3.31.0, core-js-compat@^3.31.1:
   dependencies:
     browserslist "^4.21.9"
 
-core-js@3.32.0, core-js@^3.31.0, core-js@^3.31.1:
+core-js@3.38.1:
+  version "3.38.1"
+  resolved "https://registry.yarnpkg.com/core-js/-/core-js-3.38.1.tgz#aa375b79a286a670388a1a363363d53677c0383e"
+  integrity sha512-OP35aUorbU3Zvlx7pjsFdu1rGNnD4pgw/CWoYzRY3t2EzoVT7shKHY1dlAy3f41cGIO7ZDPQimhGFTlEYkG/Hw==
+
+core-js@^3.31.0, core-js@^3.31.1:
   version "3.32.0"
   resolved "https://registry.yarnpkg.com/core-js/-/core-js-3.32.0.tgz#7643d353d899747ab1f8b03d2803b0312a0fb3b6"
   integrity sha512-rd4rYZNlF3WuoYuRIDEmbR/ga9CeuWX9U05umAvgrrZoHY4Z++cp/xwPQMvUpBB4Ag6J8KfD80G0zwCyaSxDww==
@@ -3762,6 +3767,11 @@ dotenv@^16.3.1:
   resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-16.3.1.tgz#369034de7d7e5b120972693352a3bf112172cc3e"
   integrity sha512-IPzF4w4/Rd94bA9imS68tZBaYyBWSCE47V1RGuMrB94iyTOIEwRmVL2x/4An+6mETpLrKJ5hQkB8W4kFAadeIQ==
 
+dotenv@^16.4.5:
+  version "16.4.5"
+  resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-16.4.5.tgz#cdd3b3b604cb327e286b4762e13502f717cb099f"
+  integrity sha512-ZmdL2rui+eB2YwhsWzjInR8LldtZHGDoQ1ugH85ppHKwpUHL7j7rN0Ti9NCnGiQbhaZ11FpR+7ao1dNsmduNUg==
+
 dotenv@^9.0.2:
   version "9.0.2"
   resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-9.0.2.tgz#dacc20160935a37dea6364aa1bef819fb9b6ab05"
@@ -3775,14 +3785,14 @@ drupal-jsonapi-params@^2.2.0:
     qs "^6.10.3"
 
 "druxt-auth@link:../..":
-  version "0.3.0"
+  version "0.4.0"
   dependencies:
     "@nuxtjs/auth-next" "^5.0.0-1667386184.dfbbb54"
 
-druxt@^0.23.0:
-  version "0.23.0"
-  resolved "https://registry.yarnpkg.com/druxt/-/druxt-0.23.0.tgz#7ce6138484d5afea7522ab47157030cb03e2bdb4"
-  integrity sha512-KPgLBJnubhaCiFyX4+Cekn58BZuD0lxMPu7476PnlfxuGXNP1XVm8WN16DrjJMRoUpZsLVZqIEGzCWjQrQ9naw==
+druxt@^0.24.0:
+  version "0.24.0"
+  resolved "https://registry.yarnpkg.com/druxt/-/druxt-0.24.0.tgz#99b511a80e16da7659877099913b555a94ca4dcc"
+  integrity sha512-JG2m1ieQJ/dfEodd4253UnjTqtOWjXdirHF8/HNQb0FLwjy4uQkFvyo9SSIBkIDdomMEaGiAszjyc0PYVf8QYg==
   dependencies:
     "@nuxtjs/axios" "^5.13.6"
     "@nuxtjs/proxy" "^2.1.0"
