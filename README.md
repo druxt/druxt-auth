@@ -143,7 +143,10 @@ Two things to know:
 `$auth.logout()` ends the frontend session and nothing else. Simple OAuth
 serves no revocation endpoint, so the tokens it issued stay valid until they
 expire, and the refresh token can still mint new access tokens for its whole
-lifetime.
+lifetime. Spending them at logout needs a revocation route on the Drupal side
+([issue 2945273](https://www.drupal.org/project/simple_oauth/issues/2945273)
+carries a patch), called through the Nuxt proxy so it shares the frontend
+origin.
 
 It also leaves its own storage keys behind, in cookies **and** localStorage,
 holding the string `"false"`. The keys are named for the strategy, so
