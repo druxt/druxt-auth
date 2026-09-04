@@ -180,12 +180,23 @@ secret-detection:
     # Each value is split across its own prefix, so no fragment in this file
     # triggers the rule it is meant to exercise: the repository scan above
     # runs over this file too, and a canary that flags itself would need an
-    # ignore entry, which is the thing being guarded against. They are fixed
-    # rather than random because gitleaks applies an entropy threshold to some
-    # rules, and a random key sometimes falls under it, which would make this
-    # gate flaky. They are invented, not copied from any vendor's
-    # documentation: gitleaks allowlists documentation keys, and a canary
-    # built from one is inert in exactly the way this check exists to catch.
+    # ignore entry, which is the thing being guarded against.
+    #
+    # Fixed values, not generated ones. Measured against gitleaks 8.30.1: a
+    # random AWS access-key id on a plain assignment line is reported about
+    # one time in five, and the dedicated aws-access-token rule accounts for
+    # well under half of even that. What usually fires is generic-api-key, which needs a
+    # keyword beside the value and applies an entropy threshold to it.
+    #
+    # What makes pinning work is that detection is deterministic per value:
+    # the same key gives the same verdict every run, so a value verified to
+    # fire keeps firing. Generation moves that coin flip to generation time,
+    # which is why a generated canary presents as flake rather than as a
+    # steady failure. Each of these three was verified to fire.
+    #
+    # Invented, not copied from any vendor's documentation: gitleaks
+    # allowlists documentation keys, and a canary built from one is inert in
+    # exactly the way this check exists to catch.
     - section_start "canary" "Checking that the scanner still detects"
     - |
       canary="$(mktemp -d)"
