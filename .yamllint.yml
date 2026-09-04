@@ -1,0 +1,15 @@
+---
+# yamllint for the pipeline files.
+#
+# `on:` is a GitHub workflow key, not a boolean, and CI files carry long
+# script lines that wrapping would only make harder to read.
+
+extends: default
+
+rules:
+  truthy:
+    allowed-values: ['true', 'false']
+    check-keys: false
+  line-length: disable
+  comments:
+    min-spaces-from-content: 1
