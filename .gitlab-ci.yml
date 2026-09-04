@@ -1,0 +1,174 @@
+---
+# CI for druxt-auth, mirroring .github/workflows/ci.yml.
+#
+# GitHub Actions is where the package's own releases are cut; this pipeline is
+# the same checks at merge-request time, where review happens on the mirror.
+# Keep the two in step when either changes: nothing on the GitHub side lints
+# this file, so lint:yaml here runs actionlint over the workflow in return.
+#
+# Secret scanning is gitleaks, not GitLab's Security/Secret-Detection template.
+# That template is an Ultimate-tier feature: on a non-Ultimate instance the
+# include produces no job at all, so the config reads as coverage while
+# scanning nothing. Confirmed by job list on a sibling repository that carries
+# the same include.
+
+stages:
+  - lint
+  - test
+  - secret-detection
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
+
+default:
+  tags: [docker]
+  timeout: 15m
+  before_script:
+    - 'section_start() { local n="$1" t="${2:-$1}"; printf "\e[0Ksection_start:%s:%s\r\e[0K%s\n" "$(date +%s)" "$n" "$t"; }'
+    - 'section_end() { printf "\e[0Ksection_end:%s:%s\r\e[0K\n" "$(date +%s)" "$1"; }'
+
+# Shared node setup. `corepack prepare --activate` reads the packageManager
+# field rather than pinning a manager here, so this block is the same in every
+# repository whatever it installs with. The cache is keyed by the lockfile
+# hash, so a dependency bump misses once and hits thereafter.
+.node:
+  image: node:16.20.1
+  interruptible: true
+  cache:
+    key:
+      files:
+        - yarn.lock
+      prefix: node-16.20.1
+    paths:
+      - .yarn-cache/
+  before_script:
+    - !reference [default, before_script]
+    - corepack enable
+    - corepack prepare --activate
+    - yarn config set cache-folder .yarn-cache
+    - yarn install --frozen-lockfile
+
+#
+# --- Lint ---
+#
+
+lint:js:
+  extends: .node
+  stage: lint
+  script:
+    - section_start "eslint" "Linting sources, tests and scripts"
+    - yarn lint:js
+    - section_end "eslint"
+
+lint:md:
+  extends: .node
+  stage: lint
+  script:
+    - section_start "markdownlint" "Linting Markdown"
+    - yarn lint:md
+    - section_end "markdownlint"
+
+lint:cspell:
+  extends: .node
+  stage: lint
+  script:
+    - section_start "cspell" "Spell checking"
+    - yarn lint:cspell
+    - section_end "cspell"
+
+# This repository is public, and its README and example are what people copy.
+# A host only the author can reach must never reach a tracked file.
+lint:private:
+  extends: .node
+  stage: lint
+  script:
+    - section_start "private-refs" "Checking for private host references"
+    - yarn lint:private
+    - section_end "private-refs"
+
+# yamllint covers this file; actionlint covers the workflow, which nothing on
+# the GitHub side lints before a push.
+lint:yaml:
+  stage: lint
+  image: python:3.12-slim
+  interruptible: true
+  variables:
+    ACTIONLINT_VERSION: '1.7.12'
+    ACTIONLINT_SHA256: '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8'
+  script:
+    - section_start "yamllint" "Linting YAML"
+    - pip install --quiet yamllint
+    - yamllint .gitlab-ci.yml .github/workflows/
+    - section_end "yamllint"
+    - section_start "actionlint" "Linting GitHub workflows"
+    - apt-get update -qq && apt-get install -y -qq curl > /dev/null
+    - curl -sSLo actionlint.tar.gz "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+    - echo "${ACTIONLINT_SHA256}  actionlint.tar.gz" | sha256sum -c -
+    - tar -xzf actionlint.tar.gz actionlint
+    - ./actionlint -color
+    - section_end "actionlint"
+
+# The MR's own commits, not the whole history: these repositories squash-merge,
+# so a prose title becomes the commit subject and breaks the next push.
+lint:commit:
+  extends: .node
+  stage: lint
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+  script:
+    - section_start "commitlint" "Validating commit messages"
+    - git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --depth 50
+    - yarn lint:commit --from "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --to HEAD
+    - section_end "commitlint"
+
+#
+# --- Test ---
+#
+
+# The end-to-end script is deliberately absent: it needs a running Drupal and
+# Nuxt, and lives in test/e2e for a human or a dedicated environment to run.
+test:unit:
+  extends: .node
+  stage: test
+  needs: []
+  script:
+    - section_start "build" "Building the module"
+    - yarn build
+    - section_end "build"
+    - section_start "jest" "Running unit tests"
+    - yarn test --reporters=default --reporters=jest-junit --runInBand
+    - section_end "jest"
+  artifacts:
+    when: always
+    reports:
+      junit: junit.xml
+    paths:
+      - coverage/
+    expire_in: 1 week
+  coverage: '/All files\s*\|\s*([\d.]+)/'
+
+#
+# --- Secret detection ---
+#
+
+secret-detection:
+  stage: secret-detection
+  image: alpine:3.21
+  interruptible: true
+  # gitleaks reads git history, and needs nothing this pipeline builds.
+  dependencies: []
+  variables:
+    GITLEAKS_VERSION: '8.30.1'
+    GITLEAKS_SHA256: '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb'
+  script:
+    - section_start "gitleaks" "Scanning for committed secrets"
+    - apk add --no-cache curl tar git > /dev/null
+    - curl -sSLo gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+    - echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum -c -
+    - tar -xzf gitleaks.tar.gz gitleaks
+    - ./gitleaks detect --source . --no-banner --redact --verbose
+    - section_end "gitleaks"

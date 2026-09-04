@@ -1,0 +1,8 @@
+# Named exceptions, each with a reason. Nothing goes here to make a scan pass.
+
+# example/.env carries the OAuth client_id of the example's local Drupal
+# consumer. A public PKCE client's id is not a credential: it travels in the
+# browser's authorize URL by design, and there is no secret alongside it
+# (the example's consumer is non-confidential). gitleaks flags it on entropy
+# alone, through the generic-api-key rule.
+37abbc3fada657b7704b8b3b4cd76a90bfcc2a3a:example/.env:generic-api-key:2
