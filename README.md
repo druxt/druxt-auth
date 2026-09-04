@@ -77,6 +77,13 @@ _Note:_ Replace `[DRUPAL_CONSUMER_CLIENT_ID]` and `[DRUPAL_CONSUMER_SECRET]` wit
         - Is Confidential: _checked_
         - Redirect URI: `[FRONTEND_URL]/callback` (e.g., `http://localhost:3000/callback`)
 
+4. **Authorization Code grant only:** give the role your users hold the
+   **Grant OAuth2 codes** permission (`grant simple_oauth codes`). Without it
+   the consent screen returns to itself with
+   `The 'grant simple_oauth codes' permission is required.` and no login
+   completes. User 1 bypasses permission checks, so test with a normal
+   account.
+
 ## Usage
 
 The DruxtAuth module installs and configures the **nuxt/auth** module for your Druxt site.
@@ -102,6 +109,49 @@ It adds two auth strategies  that can be used via the `$auth` plugin:
 
 - See the **nuxt/auth** documentation form more details: https://auth.nuxtjs.org/api/auth
 
+
+## Sessions
+
+Sessions renew on their own, with no application code. Both strategies store
+a refresh token when the backend issues one, and **nuxt/auth** puts an
+interceptor on the shared `$axios` instance: a request made with an expired
+access token triggers a `refresh_token` grant first, then goes out with the
+new token. That covers DruxtClient requests too, because Druxt shares the
+same instance.
+
+| Situation | What happens |
+| --------- | ------------ |
+| Access token expires while the page is open | The next request refreshes it, silently |
+| Page reloaded with an expired access token | The tokens are in cookies, so the server render refreshes and the page hydrates logged in |
+| Refresh token expired or rejected | The session resets and the request is aborted with `ExpiredAuthSessionError` |
+| No refresh token stored | The request goes out with the expired token, and the backend refuses it |
+
+Two things to know:
+
+- The backend must issue refresh tokens: enable the **Refresh token** grant
+  on both the consumer and the scope.
+- **nuxt/auth** assumes a refresh token lives 30 days, because Simple OAuth's
+  refresh tokens are opaque and carry no expiry to read. A consumer with a
+  shorter lifetime (14 days is the usual default) rejects the refresh
+  in between, which ends the session mid-request. Match the two, or expect
+  a login prompt at the consumer's lifetime rather than at 30 days.
+- Setting `druxt.axios` gives the DruxtClient its own axios instance, which
+  the interceptor never sees. Attach the token yourself in that case.
+
+## Logging out
+
+`$auth.logout()` ends the frontend session and nothing else. Simple OAuth
+serves no revocation endpoint, so the tokens it issued stay valid until they
+expire, and the refresh token can still mint new access tokens for its whole
+lifetime.
+
+It also leaves its own storage keys behind, in cookies **and** localStorage,
+holding the string `"false"`. The keys are named for the strategy, so
+`auth._token.drupal-authorization_code`, not `auth._token.druxt`.
+
+`example/nuxt/pages/user/logout.vue` is a logout page that clears them and
+forces a full page load, which is also what empties the DruxtStore of content
+fetched while logged in.
 
 ## Options
 
