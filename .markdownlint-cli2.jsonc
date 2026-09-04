@@ -1,0 +1,22 @@
+{
+  "config": {
+    "default": true,
+    // Prose wraps at whatever the author chose; line length is not a defect.
+    "MD013": false,
+    "MD024": { "siblings_only": true },
+    "MD033": false,
+    "MD034": false,
+    "MD036": false,
+    "MD041": false
+  },
+  "ignores": [
+    "node_modules/**",
+    "**/node_modules/**",
+    "coverage/**",
+    "dist/**",
+    "example/**/node_modules/**",
+    // Written by changesets, not by hand.
+    ".changeset/**",
+    "**/CHANGELOG.md"
+  ]
+}
