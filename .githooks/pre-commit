@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+# The fast half of CI: every linter, then the unit tests. The end-to-end
+# script is not here, because it needs a running Drupal and Nuxt.
+set -e
+yarn --silent lint
+yarn --silent test --silent
