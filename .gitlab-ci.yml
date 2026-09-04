@@ -172,3 +172,35 @@ secret-detection:
     - tar -xzf gitleaks.tar.gz gitleaks
     - ./gitleaks detect --source . --no-banner --redact --verbose
     - section_end "gitleaks"
+    # A scan that finds nothing looks identical to a scan that cannot find
+    # anything. Plant three credentials in a directory outside the repository
+    # and assert all three are reported, so a bad download, a config change or
+    # a widened allowlist fails the job instead of passing it quietly.
+    #
+    # Each value is split across its own prefix, so no fragment in this file
+    # triggers the rule it is meant to exercise: the repository scan above
+    # runs over this file too, and a canary that flags itself would need an
+    # ignore entry, which is the thing being guarded against. They are fixed
+    # rather than random because gitleaks applies an entropy threshold to some
+    # rules, and a random key sometimes falls under it, which would make this
+    # gate flaky. They are invented, not copied from any vendor's
+    # documentation: gitleaks allowlists documentation keys, and a canary
+    # built from one is inert in exactly the way this check exists to catch.
+    - section_start "canary" "Checking that the scanner still detects"
+    - |
+      canary="$(mktemp -d)"
+      pat="gh""p_8fK2mQ7xR4tV9nB3jH6yW1sZ5cD8gL0aE4uY"
+      stripe="sk""_live_51aBcD2eFgH3iJkL4mNoP5qR6sTuV7wXyZ8a"
+      slack="xo""xb-263594753641-2529420432-J1n4h6a9pQrStUvWxYz1AbCd"
+      printf 'a = "%s"\nb = "%s"\nc = "%s"\n' "$pat" "$stripe" "$slack" > "$canary/canary.txt"
+      ./gitleaks detect --no-git --source "$canary" --no-banner --redact \
+        --report-format json --report-path "$canary/report.json" || true
+      found=$(grep -c '"RuleID"' "$canary/report.json" || true)
+      rm -rf "$canary"
+      if [ "$found" != "3" ]; then
+        echo "The canary planted 3 credentials and gitleaks reported $found."
+        echo "The scan above proves nothing while this is true."
+        exit 1
+      fi
+      echo "Canary detected 3 of 3 planted credentials."
+    - section_end "canary"
