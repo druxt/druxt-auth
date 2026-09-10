@@ -1,3 +1,10 @@
+<!-- vale off -->
+<!-- The alt text describes what the banner shows: the druxt-auth mark, name and description. The name-colon-description form trips ColonUsage. -->
+<a href="https://druxtjs.org">
+  <img src=".github/banner.svg" alt="druxt-auth: Authentication module for DruxtJS">
+</a>
+<!-- vale on -->
+
 # DruxtAuth
 
 [![npm](https://badgen.net/npm/v/druxt-auth)](https://www.npmjs.com/package/druxt-auth)
