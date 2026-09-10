@@ -164,8 +164,8 @@ fetched while logged in.
 
 ## Options
 
-| Option         | Type     | Required | Default     | Description                                                                                                                                                                                                                    |
-| -------------- | -------- | -------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `clientId`     | `string` | Yes      | `undefined` | The Drupal Consumer's **Client ID** field, not its UUID                                                                                                                                                                                                       |
-| `clientSecret` | `string` | No       | `undefined` | The Drupal Consumer API secret. Required for Password grant.                                                                                                                                                                   |
+| Option         | Type     | Required | Default     | Description                                                                                                                                                                                                              |
+| -------------- | -------- | -------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `clientId`     | `string` | Yes      | `undefined` | The Drupal Consumer's **Client ID** field, not its UUID                                                                                                                                                                  |
+| `clientSecret` | `string` | No       | `undefined` | The Drupal Consumer API secret. Required for Password grant.                                                                                                                                                             |
 | `scope`        | `array`  | No       | `undefined` | The OAuth scopes to request. When unset, no `scope` parameter is sent and Simple OAuth 6 falls back to the consumer's own **Authorization code scopes** - so either set this option or configure scopes on the consumer. |

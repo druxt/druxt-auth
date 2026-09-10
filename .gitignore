@@ -108,3 +108,9 @@ dist
 
 # Test reports
 junit.xml
+
+# Written by the tooling this repository standard brings in.
+coverage/
+reports/
+.vale/
+.yarn-cache/

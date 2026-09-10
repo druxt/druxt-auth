@@ -27,12 +27,21 @@
     "build:watch": "siroc build --watch",
     "changeset": "changeset",
     "example": "cd example/nuxt && yarn && yarn dev",
-    "lint": "yarn lint:js && yarn lint:md && yarn lint:cspell && yarn lint:private",
+    "hooks:install": "git config core.hooksPath .githooks",
+    "lint": "yarn lint:js && yarn lint:format && yarn lint:md && yarn lint:cspell && yarn lint:private && yarn lint:attribution && yarn lint:knip",
+    "lint:attribution": "bash .gitlab/scripts/check-attribution.sh",
+    "lint:audit": "yarn audit --groups dependencies --level high",
     "lint:commit": "commitlint",
     "lint:cspell": "cspell lint --no-progress --no-must-find-files --gitignore --dot \"**/*.{js,vue,mjs,json,md,yml,yaml}\"",
+    "lint:format": "prettier --check \"**/*.{js,mjs,vue,json,jsonc,md,yml,yaml}\"",
+    "lint:format:fix": "prettier --write \"**/*.{js,mjs,vue,json,jsonc,md,yml,yaml}\"",
     "lint:js": "eslint --ext .js,.mjs,.vue src test scripts",
+    "lint:knip": "knip --include dependencies,unlisted --no-config-hints",
     "lint:md": "markdownlint-cli2 \"**/*.md\"",
     "lint:private": "node scripts/lint-private-refs.mjs",
+    "lint:prose": "PROSE_LINT_GLOB='!{.changeset/**,example/drupal/**,CHANGELOG.md}' bash .gitlab/scripts/lint-prose.sh --all",
+    "lint:prose:install": "bash .gitlab/scripts/install-vale.sh .vale/bin .vale/styles",
+    "postinstall": "node scripts/postinstall.mjs",
     "test": "jest",
     "test:watch": "jest --watch"
   },
@@ -45,16 +54,20 @@
     "@changesets/cli": "^2.26.2",
     "@commitlint/cli": "16.3.0",
     "@commitlint/config-conventional": "16.2.4",
-    "@vue/test-utils": "1.3.6",
     "babel-core": "7.0.0-bridge.0",
     "cspell": "7.3.9",
     "druxt": "0.23.0",
     "esbuild-jest": "0.5.0",
     "eslint": "8.45.0",
+    "eslint-config-prettier": "8.10.0",
     "eslint-plugin-nuxt": "3.2.0",
+    "eslint-plugin-vue": "9.32.0",
     "jest": "27.5.1",
+    "jest-environment-jsdom": "27.5.1",
     "jest-junit": "^14.0.1",
+    "knip": "2.43.0",
     "markdownlint-cli2": "0.10.0",
+    "prettier": "3.3.3",
     "siroc": "0.16.0",
     "vue-jest": "3.0.7",
     "vue-template-compiler": "^2.7.14"
@@ -66,5 +79,9 @@
   "packageManager": "yarn@1.22.22",
   "publishConfig": {
     "access": "public"
+  },
+  "jest-junit": {
+    "outputDirectory": "reports/junit",
+    "outputName": "junit.xml"
   }
 }

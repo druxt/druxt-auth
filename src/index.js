@@ -4,14 +4,14 @@ import bodyParser from 'body-parser'
 // eslint-disable-next-line no-unused-vars
 const NuxtModule = function (moduleOptions = {}) {
   const options = {
-    ...this.options.druxt || {},
+    ...(this.options.druxt || {}),
     auth: {
-      ...(this.options.druxt || {}).auth || {},
+      ...((this.options.druxt || {}).auth || {}),
       clientId: undefined,
       clientSecret: undefined,
       scope: undefined,
       ...moduleOptions,
-    }
+    },
   }
 
   // Check if client ID is provided.
@@ -28,19 +28,17 @@ const NuxtModule = function (moduleOptions = {}) {
       if (Array.isArray(this.options.proxy)) {
         this.options.proxy = [
           ...this.options.proxy,
-          baseUrl + '/oauth/userinfo'
+          baseUrl + '/oauth/userinfo',
         ]
-      }
-      else {
+      } else {
         this.options.proxy = {
           ...this.options.proxy,
-          '/oauth/userinfo': baseUrl
+          '/oauth/userinfo': baseUrl,
         }
       }
-    }
-    else {
+    } else {
       this.options.proxy = {
-        '/oauth/userinfo': baseUrl
+        '/oauth/userinfo': baseUrl,
       }
     }
   }
@@ -52,7 +50,7 @@ const NuxtModule = function (moduleOptions = {}) {
     redirect: {
       callback: '/callback',
       logout: '/',
-      ...(this.options.auth || {}).redirect
+      ...(this.options.auth || {}).redirect,
     },
 
     strategies: {
@@ -64,7 +62,8 @@ const NuxtModule = function (moduleOptions = {}) {
           token: baseUrl + '/oauth/token',
           userInfo: (!proxy ? baseUrl : '') + '/oauth/userinfo',
         },
-        clientId: (options.auth || {}).clientId || process.env.DRUXT_AUTH_CLIENT_ID,
+        clientId:
+          (options.auth || {}).clientId || process.env.DRUXT_AUTH_CLIENT_ID,
         responseType: 'code',
         scope: (options.auth || {}).scope,
         grantType: 'authorization_code',
@@ -78,36 +77,36 @@ const NuxtModule = function (moduleOptions = {}) {
           property: 'access_token',
           type: 'Bearer',
           name: 'Authorization',
-          maxAge: 60 * 60 * 24 * 365
+          maxAge: 60 * 60 * 24 * 365,
         },
         refreshToken: {
           property: 'refresh_token',
           data: 'refresh_token',
-          maxAge: 60 * 60 * 24 * 30
+          maxAge: 60 * 60 * 24 * 30,
         },
         endpoints: {
           token: baseUrl + '/oauth/token',
           login: {
             baseURL: '',
-            url: '/_auth/drupal-password/token'
+            url: '/_auth/drupal-password/token',
           },
           logout: false,
           refresh: {
             baseURL: '',
-            url: '/_auth/drupal-password/token'
+            url: '/_auth/drupal-password/token',
           },
           user: {
             url: (!proxy ? baseUrl : '') + '/oauth/userinfo',
-            method: 'post'
+            method: 'post',
           },
         },
         user: {
-          property: false
+          property: false,
         },
-        grantType: 'password'
+        grantType: 'password',
       },
 
-      ...(this.options.auth || {}).strategies
+      ...(this.options.auth || {}).strategies,
     },
   }
 
@@ -123,16 +122,22 @@ const NuxtModule = function (moduleOptions = {}) {
       await formMiddleware(req, res, async () => {
         const data = req.body
 
-        if (data.grant_type === 'password' && (!data.username || !data.password)) {
+        if (
+          data.grant_type === 'password' &&
+          (!data.username || !data.password)
+        ) {
           return next(new Error('Invalid username or password'))
         }
 
         try {
           // Build POST data string.
           const postData = new URLSearchParams({
-            client_id: (options.auth || {}).clientId || process.env.DRUXT_AUTH_CLIENT_ID,
-            client_secret: (options.auth || {}).clientSecret || process.env.DRUXT_AUTH_CLIENT_SECRET,
-            ...data
+            client_id:
+              (options.auth || {}).clientId || process.env.DRUXT_AUTH_CLIENT_ID,
+            client_secret:
+              (options.auth || {}).clientSecret ||
+              process.env.DRUXT_AUTH_CLIENT_SECRET,
+            ...data,
           }).toString()
 
           // Request token,
@@ -141,21 +146,21 @@ const NuxtModule = function (moduleOptions = {}) {
             postData,
             {
               headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
+                'Content-Type': 'application/x-www-form-urlencoded',
               },
             }
           )
 
           // Return response data.
           res.end(JSON.stringify(response.data))
-        } catch(err) {
+        } catch (err) {
           // Handle error.
           console.error(err)
           res.statusCode = (err.response || {}).statusCode || 500
           res.end(JSON.stringify({ ...((err.response || {}).data || {}) }))
         }
       })
-    }
+    },
   })
 
   // Enable Vuex Store.
@@ -171,14 +176,17 @@ const NuxtModule = function (moduleOptions = {}) {
       this.addTemplate({
         src: resolve(__dirname, '../templates/callback.js'),
         fileName: 'components/druxt-auth-callback.js',
-        options
+        options,
       })
 
       routes.push({
         name: 'druxt-auth-callback',
         path: '/callback',
-        component: resolve(this.options.buildDir, 'components/druxt-auth-callback.js'),
-        chunkName: 'druxt-auth-callback'
+        component: resolve(
+          this.options.buildDir,
+          'components/druxt-auth-callback.js'
+        ),
+        chunkName: 'druxt-auth-callback',
       })
     }
   })

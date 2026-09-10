@@ -17,7 +17,10 @@ export const clientId = 'mock-client-id'
  * Built by running the module itself, so the tests assert against shipped
  * configuration rather than a copy of it.
  */
-export const strategyOptions = (name = 'drupal-authorization_code', moduleOptions = {}) => {
+export const strategyOptions = (
+  name = 'drupal-authorization_code',
+  moduleOptions = {}
+) => {
   const mock = {
     addModule: jest.fn(),
     addTemplate: jest.fn(),
@@ -40,11 +43,12 @@ export const strategyOptions = (name = 'drupal-authorization_code', moduleOption
 
 /** An access token that expires at the given time; Simple OAuth issues JWTs. */
 export const accessToken = (expiresAt = Date.now() + 300000) => {
-  const encode = (value) => Buffer.from(JSON.stringify(value))
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '')
+  const encode = (value) =>
+    Buffer.from(JSON.stringify(value))
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '')
   return [
     encode({ typ: 'JWT', alg: 'RS256' }),
     encode({ exp: Math.floor(expiresAt / 1000), sub: '2', scope: ['druxt'] }),
@@ -120,7 +124,10 @@ export const createScheme = (moduleOptions = {}) => {
     reset: jest.fn(),
   }
 
-  const scheme = new Oauth2Scheme($auth, strategyOptions('drupal-authorization_code', moduleOptions))
+  const scheme = new Oauth2Scheme(
+    $auth,
+    strategyOptions('drupal-authorization_code', moduleOptions)
+  )
   $auth.reset.mockImplementation(() => scheme.reset())
 
   return {
@@ -136,21 +143,28 @@ export const createScheme = (moduleOptions = {}) => {
     },
 
     /** Run a request through the interceptor the scheme installed. */
-    intercept: (config = {}) => interceptors[0]({
-      url: '/jsonapi/node/page',
-      headers: { common: {} },
-      ...config,
-    }),
+    intercept: (config = {}) =>
+      interceptors[0]({
+        url: '/jsonapi/node/page',
+        headers: { common: {} },
+        ...config,
+      }),
 
     /** Every auth key still present in cookies and localStorage. */
     residue: () => {
       const cookies = {}
-      document.cookie.split(';').map((c) => c.trim()).filter(Boolean).forEach((c) => {
-        const [key, value] = c.split('=')
-        cookies[key] = decodeURIComponent(value || '')
-      })
+      document.cookie
+        .split(';')
+        .map((c) => c.trim())
+        .filter(Boolean)
+        .forEach((c) => {
+          const [key, value] = c.split('=')
+          cookies[key] = decodeURIComponent(value || '')
+        })
       const local = {}
-      Object.keys(localStorage).forEach((key) => { local[key] = localStorage.getItem(key) })
+      Object.keys(localStorage).forEach((key) => {
+        local[key] = localStorage.getItem(key)
+      })
       return { cookies, local }
     },
   }
