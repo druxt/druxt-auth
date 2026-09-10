@@ -49,7 +49,7 @@ export default {
         `auth._refresh_token.${strategy}`,
         `auth._refresh_token_expiration.${strategy}`,
         `auth.${strategy}.pkce_state`,
-        'auth.strategy'
+        'auth.strategy',
       ]
       keys.forEach((key) => {
         document.cookie = `${key}=; Path=/; Max-Age=0`
@@ -59,7 +59,7 @@ export default {
       // A full page load, not router.push: this is what drops content fetched
       // while logged in from the DruxtStore.
       window.location.href = window.location.origin
-    }
-  }
+    },
+  },
 }
 </script>
