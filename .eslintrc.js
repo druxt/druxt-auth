@@ -5,4 +5,11 @@ module.exports = {
     'plugin:nuxt/recommended',
     'plugin:vue/recommended'
   ],
+  overrides: [
+    {
+      // Standalone ESM scripts, run directly by node: top-level await.
+      files: ['*.mjs'],
+      parserOptions: { ecmaVersion: 2022, sourceType: 'module' }
+    }
+  ]
 }

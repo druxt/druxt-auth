@@ -12,7 +12,6 @@
 - DruxtJS: https://druxtjs.org
 - Community Discord server: https://discord.druxtjs.org
 
-
 ## Install
 
 `$ npm install druxt-auth`
@@ -89,12 +88,15 @@ _Note:_ Replace `[DRUPAL_CONSUMER_CLIENT_ID]` and `[DRUPAL_CONSUMER_SECRET]` wit
 The DruxtAuth module installs and configures the **nuxt/auth** module for your Druxt site.
 
 It adds two auth strategies  that can be used via the `$auth` plugin:
+
 - `drupal-authorization_code`  
+
   ```js
   this.$nuxt.$auth.loginWith('drupal-authorization_code')
   ```
 
 - `drupal-password`
+
   ```js
   this.$nuxt.$auth.loginWith('drupal-password', {
     data: {
@@ -106,9 +108,7 @@ It adds two auth strategies  that can be used via the `$auth` plugin:
 
   _Note:_ Nuxt must be running in SSR mode for password grant, and client secret must be set.
 
-
 - See the **nuxt/auth** documentation form more details: https://auth.nuxtjs.org/api/auth
-
 
 ## Sessions
 
