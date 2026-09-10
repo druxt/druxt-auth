@@ -41,7 +41,7 @@
     "lint:private": "node scripts/lint-private-refs.mjs",
     "lint:prose": "PROSE_LINT_GLOB='!{.changeset/**,example/drupal/**,CHANGELOG.md}' bash .gitlab/scripts/lint-prose.sh --all",
     "lint:prose:install": "bash .gitlab/scripts/install-vale.sh .vale/bin .vale/styles",
-    "postinstall": "node scripts/postinstall.mjs",
+    "prepare": "node scripts/prepare.mjs",
     "test": "jest",
     "test:watch": "jest --watch"
   },

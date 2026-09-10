@@ -12,6 +12,12 @@
  * neither, and the version in use elsewhere is on a deprecated hook-sourcing
  * style. A committed directory works everywhere and costs no dependency.
  *
+ * Runs on `prepare`, not `postinstall`. npm and yarn run `prepare` for a
+ * checkout and before packing, and never for a package installed as a
+ * dependency. `postinstall` does run for a dependency, and `scripts/` is not
+ * in `files`, so a consumer install would fail on a module that is not in the
+ * tarball. The git guard below would never be reached.
+ *
  * Quiet on failure. A CI install runs this too, and there is nothing to gain
  * from failing an install because a hook could not be configured in a
  * container that will never make a commit.
