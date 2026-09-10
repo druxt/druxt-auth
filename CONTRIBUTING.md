@@ -1,8 +1,9 @@
 # Contributing
 
-DruxtAuth wires [@nuxtjs/auth-next](https://auth.nuxtjs.org) to Drupal's
-Simple OAuth. Its whole job is a configuration surface, so most defects here
-look like a session that quietly stops working rather than a stack trace.
+DruxtAuth is a configuration surface between
+[@nuxtjs/auth-next](https://auth.nuxtjs.org) and Drupal Simple OAuth, so most
+defects here look like a session that quietly stops working rather than a
+stack trace.
 
 ## Getting set up
 
@@ -24,15 +25,15 @@ mise run ci
 That is every linter and the unit tests, which is what both pipelines run.
 If you only touched prose, `yarn lint` is enough.
 
-## What the checks are for
+## The checks
 
-| Check | Guards against |
-| ----- | -------------- |
-| `lint:js` | Mistakes in the module, the tests and the scripts |
-| `lint:md` | Malformed Markdown |
-| `lint:cspell` | Typos, including in the documentation people follow |
-| `lint:private` | Publishing a URL that only resolves on a private network |
-| `test` | The strategies losing behaviour nobody would notice until a session breaks |
+| Check          | Guards against                                                             |
+| -------------- | -------------------------------------------------------------------------- |
+| `lint:js`      | Mistakes in the module, the tests and the scripts                          |
+| `lint:md`      | Malformed Markdown                                                         |
+| `lint:cspell`  | Typos, including in the documentation people follow                        |
+| `lint:private` | Publishing a URL that only resolves on a private network                   |
+| `test`         | The strategies losing behaviour nobody would notice until a session breaks |
 
 ## The end-to-end check
 

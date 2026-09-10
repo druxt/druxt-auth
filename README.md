@@ -24,13 +24,16 @@ Add module to `nuxt.config.js`
 module.exports = {
   modules: [
     'druxt',
-    ['druxt-auth', {
-      clientId: '[DRUPAL_CONSUMER_CLIENT_ID]',
-      clientSecret: '[DRUPAL_CONSUMER_SECRET]',
-    }]
+    [
+      'druxt-auth',
+      {
+        clientId: '[DRUPAL_CONSUMER_CLIENT_ID]',
+        clientSecret: '[DRUPAL_CONSUMER_SECRET]',
+      },
+    ],
   ],
   druxt: {
-    baseUrl: 'https://demo-api.druxtjs.org'
+    baseUrl: 'https://demo-api.druxtjs.org',
   },
 }
 ```
@@ -40,7 +43,7 @@ authentication endpoints and proxy at runtime, and `buildModules` are not
 loaded by `nuxt start`, so authentication would silently stop working in
 production while the dev server looks fine.
 
-_Note:_ Replace `[DRUPAL_CONSUMER_CLIENT_ID]` and `[DRUPAL_CONSUMER_SECRET]` with the details from the consumer created in the following step. With Simple OAuth 6 this is the consumer's **Client ID** field, not its UUID.
+_Note:_ replace `[DRUPAL_CONSUMER_CLIENT_ID]` and `[DRUPAL_CONSUMER_SECRET]` with the details from the consumer created in the following step. With Simple OAuth 6 this is the consumer's **Client ID** field, not its UUID.
 
 ### Drupal
 
@@ -48,33 +51,34 @@ _Note:_ Replace `[DRUPAL_CONSUMER_CLIENT_ID]` and `[DRUPAL_CONSUMER_SECRET]` wit
 
 2. **Simple OAuth 6.x only:** create an OAuth2 scope
    (`/admin/config/people/simple_oauth/oauth2_scope/dynamic`). Simple OAuth 6
-   ships without any scopes, and it rejects every authorization request -
+   has no scopes configured, and it rejects every authorization request -
    with or without a `scope` parameter - until one exists that the request
    can resolve:
 
-    - Grant types: enable at least **Authorization code**
-    - Granularity: e.g. **Role** with the `authenticated` role
+   - Grant types: enable at least **Authorization code**
+   - Granularity: e.g. **Role** with the `authenticated` role
 
 3. Create a Consumer depending on your desired authorization strategy:
 
-    - **Authorization Code** grant:
-        - Client ID: _a unique ID of your choosing - this is the `clientId`
-          the frontend sends (Simple OAuth 6 looks consumers up by this
-          field, not by UUID)_
-        - New Secret: _leave this empty_
-        - Is Confidential: _unchecked_
-        - Use PKCE?: _checked_
-        - Grant types: _enable **Authorization code** (and **Refresh token**
-          for session renewal)_
-        - Authorization code scopes: _the scope from the previous step. This
-          is the default when the frontend sends no scope of its own, which
-          is what DruxtAuth does unless the `scope` option is set_
-        - Redirect URI: `[FRONTEND_URL]/callback` (e.g., `http://localhost:3000/callback`)
+   - **Authorization Code** grant:
 
-    - **Password** grant:
-        - New Secret: _provide a secure secret_
-        - Is Confidential: _checked_
-        - Redirect URI: `[FRONTEND_URL]/callback` (e.g., `http://localhost:3000/callback`)
+     - Client ID: _a unique ID of your choosing - this is the `clientId`
+       the frontend sends (Simple OAuth 6 looks consumers up by this
+       field, not by UUID)_
+     - New Secret: _leave this empty_
+     - Is Confidential: _unchecked_
+     - Use PKCE?: _checked_
+     - Grant types: _enable **Authorization code** (and **Refresh token**
+       for session renewal)_
+     - Authorization code scopes: _the scope from the previous step. This
+       is the default when the frontend does not send a scope of its own, which
+       is what DruxtAuth does unless the `scope` option is set_
+     - Redirect URI: `[FRONTEND_URL]/callback` (e.g., `http://localhost:3000/callback`)
+
+   - **Password** grant:
+     - New Secret: _provide a secure secret_
+     - Is Confidential: _checked_
+     - Redirect URI: `[FRONTEND_URL]/callback` (e.g., `http://localhost:3000/callback`)
 
 4. **Authorization Code grant only:** give the role your users hold the
    **Grant OAuth2 codes** permission (`grant simple_oauth codes`). Without it
@@ -87,9 +91,9 @@ _Note:_ Replace `[DRUPAL_CONSUMER_CLIENT_ID]` and `[DRUPAL_CONSUMER_SECRET]` wit
 
 The DruxtAuth module installs and configures the **nuxt/auth** module for your Druxt site.
 
-It adds two auth strategies  that can be used via the `$auth` plugin:
+It adds two auth strategies that can be used via the `$auth` plugin:
 
-- `drupal-authorization_code`  
+- `drupal-authorization_code`
 
   ```js
   this.$nuxt.$auth.loginWith('drupal-authorization_code')
@@ -101,12 +105,12 @@ It adds two auth strategies  that can be used via the `$auth` plugin:
   this.$nuxt.$auth.loginWith('drupal-password', {
     data: {
       username: '',
-      password: ''
-    }
+      password: '',
+    },
   })
   ```
 
-  _Note:_ Nuxt must be running in SSR mode for password grant, and client secret must be set.
+  _Note:_ nuxt must be running in SSR mode for password grant, and client secret must be set.
 
 - See the **nuxt/auth** documentation form more details: https://auth.nuxtjs.org/api/auth
 
@@ -119,14 +123,14 @@ access token triggers a `refresh_token` grant first, then goes out with the
 new token. That covers DruxtClient requests too, because Druxt shares the
 same instance.
 
-| Situation | What happens |
-| --------- | ------------ |
-| Access token expires while the page is open | The next request refreshes it, silently |
-| Page reloaded with an expired access token | The tokens are in cookies, so the server render refreshes and the page hydrates logged in |
-| Refresh token expired or rejected | The session resets and the request is aborted with `ExpiredAuthSessionError` |
-| No refresh token stored | The request goes out with the expired token, and the backend refuses it |
+| Situation                                   | What happens                                                                              |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Access token expires while the page is open | The next request refreshes it, silently                                                   |
+| Page reloaded with an expired access token  | The tokens are in cookies, so the server render refreshes and the page hydrates logged in |
+| Refresh token expired or rejected           | The session resets and the request is aborted with `ExpiredAuthSessionError`              |
+| No refresh token stored                     | The request goes out with the expired token, and the backend refuses it                   |
 
-Two things to know:
+Both of the following apply:
 
 - The backend must issue refresh tokens: enable the **Refresh token** grant
   on both the consumer and the scope.
@@ -141,14 +145,14 @@ Two things to know:
 ## Logging out
 
 `$auth.logout()` ends the frontend session and nothing else. Simple OAuth
-serves no revocation endpoint, so the tokens it issued stay valid until they
+does not serve a revocation endpoint, so the tokens it issued stay valid until they
 expire, and the refresh token can still mint new access tokens for its whole
 lifetime. Spending them at logout needs a revocation route on the Drupal side
 ([issue 2945273](https://www.drupal.org/project/simple_oauth/issues/2945273)
 carries a patch), called through the Nuxt proxy so it shares the frontend
 origin.
 
-It also leaves its own storage keys behind, in cookies **and** localStorage,
+It also leaves its own storage keys behind, in both cookies and localStorage,
 holding the string `"false"`. The keys are named for the strategy, so
 `auth._token.drupal-authorization_code`, not `auth._token.druxt`.
 
@@ -158,8 +162,8 @@ fetched while logged in.
 
 ## Options
 
-| Option | Type | Required | Default | Description |
-| --- | --- | --- | --- | --- |
-| `clientId` | `string` | Yes | `undefined` | The Drupal Consumer UUID |
-| `clientSecret` | `string` | No | `undefined` | The Drupal Consumer API secret. Required for Password grant. |
-| `scope` | `array` | No | `undefined` | The OAuth scopes to request. When unset, the request carries an empty `scope` and Simple OAuth 6 falls back to the consumer's own **Authorization code scopes** - so either set this option or configure scopes on the consumer. |
+| Option         | Type     | Required | Default     | Description                                                                                                                                                                                                                    |
+| -------------- | -------- | -------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `clientId`     | `string` | Yes      | `undefined` | The Drupal Consumer UUID                                                                                                                                                                                                       |
+| `clientSecret` | `string` | No       | `undefined` | The Drupal Consumer API secret. Required for Password grant.                                                                                                                                                                   |
+| `scope`        | `array`  | No       | `undefined` | The OAuth scopes to request. When unset, the request sends an empty `scope` and Simple OAuth 6 falls back to the consumer's own **Authorization code scopes** - so either set this option or configure scopes on the consumer. |
