@@ -178,7 +178,7 @@ secret-detection:
     - curl -sSLo gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
     - echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum -c -
     - tar -xzf gitleaks.tar.gz gitleaks
-    - ./gitleaks detect --source . --no-banner --redact --verbose
+    - ./gitleaks detect --source . --config .gitleaks.toml --no-banner --redact --verbose
     - section_end "gitleaks"
     # A scan that finds nothing looks identical to a scan that cannot find
     # anything. Plant three credentials in a directory outside the repository

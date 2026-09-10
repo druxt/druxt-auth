@@ -1,0 +1,25 @@
+# gitleaks configuration.
+#
+# The default rule set, plus one narrowly scoped allowlist. Nothing is added
+# here to make a scan pass: an entry needs a reason that would survive review.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = """
+example/.env carries the OAuth client_id of the example's local Drupal
+consumer. A public PKCE client's id is not a credential: it travels in the
+browser's authorize URL by design, and the example's consumer is
+non-confidential, so no secret sits alongside it. gitleaks flags it on
+entropy alone.
+
+Scoped by path and to the one rule that fires. Any other detector still
+reports this file, and generic-api-key still reports every other file.
+
+This replaces per-commit fingerprints in .gitleaksignore. A fingerprint names
+one commit, the same value sits in several, and which of them a scan reaches
+depends on the clone depth, so the check passed or failed by accident.
+"""
+targetRules = ["generic-api-key"]
+paths = ['''^example/\.env$''']

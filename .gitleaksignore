@@ -1,15 +1,6 @@
 # Named exceptions, each with a reason. Nothing goes here to make a scan pass.
-
-# example/.env carries the OAuth client_id of the example's local Drupal
-# consumer. A public PKCE client's id is not a credential: it travels in the
-# browser's authorize URL by design, and there is no secret alongside it
-# (the example's consumer is non-confidential). gitleaks flags it on entropy
-# alone, through the generic-api-key rule.
 #
-# The same value sits in three commits: the file was added, then carried
-# through a feature commit and its release merge. gitleaks fingerprints a
-# finding per commit, and a scan that reaches the whole history reports all
-# three, so all three are named here.
-37abbc3fada657b7704b8b3b4cd76a90bfcc2a3a:example/.env:generic-api-key:2
-3ef518e17bb43589b490205b757e2e9f5c0558dd:example/.env:generic-api-key:2
-c0a39a30b1268886b0c998647192fcbdc83b05a7:example/.env:generic-api-key:2
+# Empty on purpose. The one standing exception, the example's OAuth client_id,
+# is a path allowlist in .gitleaks.toml scoped to the single rule that fires.
+# A fingerprint names one commit, and the same value sits in several, so which
+# of them a scan reached depended on the clone depth.
