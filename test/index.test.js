@@ -6,14 +6,15 @@ let mock
 
 jest.mock('axios', () => ({
   post: jest.fn(() => ({
-    data: true
-  }))
+    data: true,
+  })),
 }))
 
 jest.mock('body-parser', () => ({
-  json: () => jest.fn((req, res, fn) => {
-    fn(req, res)
-  })
+  json: () =>
+    jest.fn((req, res, fn) => {
+      fn(req, res)
+    }),
 }))
 
 describe('DruxtAuth Nuxt module', () => {
@@ -21,12 +22,12 @@ describe('DruxtAuth Nuxt module', () => {
     mock = {
       addModule: jest.fn(),
       addTemplate: jest.fn(),
-      extendRoutes: jest.fn(fn => {
+      extendRoutes: jest.fn((fn) => {
         fn([], jest.fn())
       }),
       options: {
         druxt: {
-          baseUrl: 'https://demo-api.druxtjs.org'
+          baseUrl: 'https://demo-api.druxtjs.org',
         },
         serverMiddleware: [],
       },
@@ -37,25 +38,27 @@ describe('DruxtAuth Nuxt module', () => {
   test('Defaults', async () => {
     try {
       DruxtAuthModule.call(mock, {})
-    } catch(err) {
+    } catch (err) {
       expect(err.message).toBe('DruxtAuth requires a clientId to be provided.')
     }
 
     // Call Druxt module with module options.
     DruxtAuthModule.call(mock, {
-      clientId: 'mock-client-id'
+      clientId: 'mock-client-id',
     })
 
     // Expect the @nuxtjs/auth-next module to be correctly configured.
     expect(mock.options.auth).toMatchSnapshot()
 
     // Password grant middleware.
-    expect(mock.options.serverMiddleware[0].path).toBe('/_auth/drupal-password/token')
+    expect(mock.options.serverMiddleware[0].path).toBe(
+      '/_auth/drupal-password/token'
+    )
 
     // Expect the middleware to ignore anything that isn't a POST request.
     let req = {}
     const res = {
-      end: jest.fn()
+      end: jest.fn(),
     }
     const next = jest.fn()
     await mock.options.serverMiddleware[0].handler(req, res, next)
@@ -65,8 +68,8 @@ describe('DruxtAuth Nuxt module', () => {
     req = {
       method: 'POST',
       body: {
-        grant_type: 'password'
-      }
+        grant_type: 'password',
+      },
     }
     await mock.options.serverMiddleware[0].handler(req, res, next)
     expect(next).toHaveBeenCalledWith(new Error('Invalid username or password'))
@@ -76,8 +79,8 @@ describe('DruxtAuth Nuxt module', () => {
       body: {
         grant_type: 'password',
         username: 'admin',
-        password: 'password'
-      }
+        password: 'password',
+      },
     }
     await mock.options.serverMiddleware[0].handler(req, res, next)
     expect(res.end).toBeCalledWith('true')
@@ -88,7 +91,7 @@ describe('DruxtAuth Nuxt module', () => {
 
     // Call Druxt module with module options.
     DruxtAuthModule.call(mock, {
-      clientId: 'mock-client-id'
+      clientId: 'mock-client-id',
     })
 
     // Expect the @nuxtjs/auth-next module to be correctly configured.
@@ -98,12 +101,12 @@ describe('DruxtAuth Nuxt module', () => {
   test('API Proxy - Object', async () => {
     mock.options.druxt.proxy = { api: true }
     mock.options.proxy = {
-      '/test': 'https://api.umami.demo.druxtjs.org'
+      '/test': 'https://api.umami.demo.druxtjs.org',
     }
 
     // Call Druxt module with module options.
     DruxtAuthModule.call(mock, {
-      clientId: 'mock-client-id'
+      clientId: 'mock-client-id',
     })
 
     // Expect the @nuxtjs/auth-next module to be correctly configured.
@@ -112,13 +115,11 @@ describe('DruxtAuth Nuxt module', () => {
 
   test('API Proxy - Array', async () => {
     mock.options.druxt.proxy = { api: true }
-    mock.options.proxy = [
-      'https://api.umami.demo.druxtjs.org/test'
-    ]
+    mock.options.proxy = ['https://api.umami.demo.druxtjs.org/test']
 
     // Call Druxt module with module options.
     DruxtAuthModule.call(mock, {
-      clientId: 'mock-client-id'
+      clientId: 'mock-client-id',
     })
 
     // Expect the @nuxtjs/auth-next module to be correctly configured.

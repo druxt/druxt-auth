@@ -12,12 +12,12 @@
      lifetimes). A login that works as user 1 is not a reproduction: user 1
      bypasses permission checks. -->
 
-| | |
-| --- | --- |
-| druxt-auth | |
-| @nuxtjs/auth-next | |
-| Drupal | |
-| simple_oauth | |
-| Nuxt | |
+|                   |     |
+| ----------------- | --- |
+| druxt-auth        |     |
+| @nuxtjs/auth-next |     |
+| Drupal            |     |
+| simple_oauth      |     |
+| Nuxt              |     |
 
 ## Anything already ruled out

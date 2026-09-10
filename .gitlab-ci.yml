@@ -92,6 +92,14 @@ lint:private:
 
 # yamllint covers this file; actionlint covers the workflow, which nothing on
 # the GitHub side lints before a push.
+lint:format:
+  extends: .node
+  stage: lint
+  script:
+    - section_start "prettier" "Checking formatting"
+    - yarn lint:format
+    - section_end "prettier"
+
 lint:yaml:
   stage: lint
   image: python:3.12-slim
@@ -170,7 +178,7 @@ secret-detection:
     - curl -sSLo gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
     - echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum -c -
     - tar -xzf gitleaks.tar.gz gitleaks
-    - ./gitleaks detect --source . --no-banner --redact --verbose
+    - ./gitleaks detect --source . --config .gitleaks.toml --no-banner --redact --verbose
     - section_end "gitleaks"
     # A scan that finds nothing looks identical to a scan that cannot find
     # anything. Plant three credentials in a directory outside the repository
@@ -215,3 +223,79 @@ secret-detection:
       fi
       echo "Canary detected 3 of 3 planted credentials."
     - section_end "canary"
+
+lint:knip:
+  extends: .node
+  stage: lint
+  script:
+    - section_start "knip" "Checking for unused and undeclared dependencies"
+    - yarn lint:knip
+    - section_end "knip"
+
+# Production only. A shipped runtime dependency is what actually reaches a
+# consumer; a devDependency advisory is worth knowing about and not worth
+# blocking a merge request on.
+
+# Production only. A shipped runtime dependency is what actually reaches a
+# consumer; a devDependency advisory is worth knowing about and not worth
+# blocking a merge request on.
+
+lint:audit:
+  extends: .node
+  stage: lint
+  # Reporting only, deliberately. Every current finding reaches this package
+  # through @nuxtjs/auth-next, its single runtime dependency, pinned to a
+  # pre-release that has had no upstream release since 2022. A blocking gate
+  # here would be red on every pipeline and read as noise within a week.
+  # Flipping it to blocking is a decision to take with the replacement of that
+  # dependency, not before it.
+  allow_failure: true
+  script:
+    - section_start "audit" "Auditing shipped dependencies"
+    - yarn lint:audit
+    - section_end "audit"
+
+# yamllint covers this file; actionlint covers the GitHub workflow, which
+# nothing on the GitHub side lints before a push.
+
+# The work is the author's. No commit, merge request description or tracked
+# file may credit an AI tool as author, co-author or generator. Full history,
+# because the range is the merge request's own and its base has to be present.
+
+lint:attribution:
+  image: node:16.20.1
+  stage: lint
+  interruptible: true
+  variables:
+    GIT_DEPTH: 0
+  script:
+    - section_start "attribution" "Checking for AI attribution"
+    - bash .gitlab/scripts/check-attribution.sh
+    - section_end "attribution"
+
+# Project voice over the markdown a change touches, its commit messages and the
+# merge request description. The changesets README and the Drupal scaffold are third-party text.
+
+# Project voice over the markdown a change touches, its commit messages and the
+# merge request description. The changesets README and the Drupal scaffold are third-party text.
+
+lint:prose:
+  image: node:16.20.1
+  stage: lint
+  interruptible: true
+  variables:
+    GIT_DEPTH: 0
+    PROSE_LINT_GLOB: "!{.changeset/**,example/drupal/**,CHANGELOG.md}"
+  cache:
+    key: vale-3.17.1
+    paths:
+      - .vale/
+  script:
+    - section_start "prose" "Linting prose with Vale"
+    - bash .gitlab/scripts/install-vale.sh .vale/bin .vale/styles
+    - bash .gitlab/scripts/lint-prose.sh
+    - section_end "prose"
+
+#
+# --- Test ---
+#

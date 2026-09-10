@@ -16,7 +16,13 @@
 
 import { ExpiredAuthSessionError } from '@nuxtjs/auth-next/dist/runtime'
 
-import { accessToken, baseUrl, createScheme, refreshToken, tokenResponse } from './lib/strategy'
+import {
+  accessToken,
+  baseUrl,
+  createScheme,
+  refreshToken,
+  tokenResponse,
+} from './lib/strategy'
 
 const HOUR = 60 * 60 * 1000
 
@@ -46,8 +52,9 @@ describe('Refresh configuration', () => {
     const expiresAt = Date.now() + 300000
     ctx.scheme.token.set(accessToken(expiresAt))
 
-    expect(Math.round(ctx.scheme.token._getExpiration() / 1000))
-      .toBe(Math.floor(expiresAt / 1000))
+    expect(Math.round(ctx.scheme.token._getExpiration() / 1000)).toBe(
+      Math.floor(expiresAt / 1000)
+    )
   })
 
   test('refresh token expiry falls back to maxAge, which the backend does not know about', () => {
@@ -57,7 +64,8 @@ describe('Refresh configuration', () => {
     // the scheme assumes 30 days. A consumer set to a shorter lifetime (14
     // days is the usual default) rejects the refresh in between, and the
     // session ends mid-request.
-    const days = (ctx.scheme.refreshToken._getExpiration() - Date.now()) / (24 * HOUR)
+    const days =
+      (ctx.scheme.refreshToken._getExpiration() - Date.now()) / (24 * HOUR)
     expect(Math.round(days)).toBe(30)
   })
 })
@@ -65,7 +73,9 @@ describe('Refresh configuration', () => {
 describe('Refresh through the request interceptor', () => {
   test('a live access token is sent as is, with no refresh', async () => {
     ctx.signIn()
-    ctx.scheme.requestHandler.initializeRequestInterceptor(ctx.scheme.options.endpoints.token)
+    ctx.scheme.requestHandler.initializeRequestInterceptor(
+      ctx.scheme.options.endpoints.token
+    )
 
     const config = await ctx.intercept()
 
@@ -77,7 +87,9 @@ describe('Refresh through the request interceptor', () => {
     ctx.signIn({ expiresAt: Date.now() - 60000 })
     const expired = ctx.scheme.token.get()
     ctx.$auth.request.mockResolvedValue(tokenResponse())
-    ctx.scheme.requestHandler.initializeRequestInterceptor(ctx.scheme.options.endpoints.token)
+    ctx.scheme.requestHandler.initializeRequestInterceptor(
+      ctx.scheme.options.endpoints.token
+    )
 
     const config = await ctx.intercept()
 
@@ -101,7 +113,9 @@ describe('Refresh through the request interceptor', () => {
   test('a data request refreshes too, because the token is global', async () => {
     ctx.signIn({ expiresAt: Date.now() - 60000 })
     ctx.$auth.request.mockResolvedValue(tokenResponse())
-    ctx.scheme.requestHandler.initializeRequestInterceptor(ctx.scheme.options.endpoints.token)
+    ctx.scheme.requestHandler.initializeRequestInterceptor(
+      ctx.scheme.options.endpoints.token
+    )
 
     // The DruxtClient shares this axios instance unless druxt.axios is set.
     const config = await ctx.intercept({ url: '/jsonapi/node/article' })
@@ -112,7 +126,9 @@ describe('Refresh through the request interceptor', () => {
 
   test('the refresh request itself is not intercepted', async () => {
     ctx.signIn({ expiresAt: Date.now() - 60000 })
-    ctx.scheme.requestHandler.initializeRequestInterceptor(ctx.scheme.options.endpoints.token)
+    ctx.scheme.requestHandler.initializeRequestInterceptor(
+      ctx.scheme.options.endpoints.token
+    )
 
     const config = await ctx.intercept({ url: `${baseUrl}/oauth/token` })
 
@@ -123,7 +139,9 @@ describe('Refresh through the request interceptor', () => {
   test('an expired refresh token ends the session without calling the backend', async () => {
     ctx.signIn({ expiresAt: Date.now() - 60000 })
     ctx.scheme.refreshToken._setExpiration(Date.now() - 60000)
-    ctx.scheme.requestHandler.initializeRequestInterceptor(ctx.scheme.options.endpoints.token)
+    ctx.scheme.requestHandler.initializeRequestInterceptor(
+      ctx.scheme.options.endpoints.token
+    )
 
     await expect(ctx.intercept()).rejects.toThrow(ExpiredAuthSessionError)
 
@@ -137,7 +155,9 @@ describe('Refresh through the request interceptor', () => {
     ctx.$auth.request.mockRejectedValue({
       response: { status: 400, data: { error: 'invalid_grant' } },
     })
-    ctx.scheme.requestHandler.initializeRequestInterceptor(ctx.scheme.options.endpoints.token)
+    ctx.scheme.requestHandler.initializeRequestInterceptor(
+      ctx.scheme.options.endpoints.token
+    )
 
     await expect(ctx.intercept()).rejects.toThrow(ExpiredAuthSessionError)
 
@@ -151,7 +171,9 @@ describe('Refresh through the request interceptor', () => {
     // backend answers 401 while the frontend still believes it is logged in.
     ctx.signIn({ expiresAt: Date.now() - 60000 })
     ctx.scheme.refreshToken.reset()
-    ctx.scheme.requestHandler.initializeRequestInterceptor(ctx.scheme.options.endpoints.token)
+    ctx.scheme.requestHandler.initializeRequestInterceptor(
+      ctx.scheme.options.endpoints.token
+    )
 
     const config = await ctx.intercept()
 

@@ -4,7 +4,6 @@ name: CI
 on:
   push:
     branches: [main, develop]
-
   # No branch filter: a pull request into any base runs CI. A stacked pull
   # request targets the branch below it rather than develop, and a filter here
   # would leave every one of them untested but green.
@@ -19,6 +18,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          # The attribution and prose checks read the pull request's own
+          # commits, so its base has to be present.
+          fetch-depth: 0
 
       - name: Use Node.js
         uses: actions/setup-node@v7
@@ -41,11 +45,36 @@ jobs:
       # copy. A host only the author can reach must never reach a tracked file.
       - run: yarn lint:private
 
+      # The work is the author's. No commit, pull request description or
+      # tracked file may credit an AI tool as author, co-author or generator.
+      - name: Check for AI attribution
+        env:
+          ATTRIBUTION_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          MERGE_REQUEST_DESCRIPTION: ${{ github.event.pull_request.body }}
+        run: bash .gitlab/scripts/check-attribution.sh
+
+      # Project voice over the markdown a change touches, its commit messages
+      # and the pull request description.
+      - name: Lint prose
+        env:
+          PROSE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          MERGE_REQUEST_DESCRIPTION: ${{ github.event.pull_request.body }}
+          PROSE_LINT_GLOB: "!{.changeset/**,example/drupal/**,CHANGELOG.md}"
+        run: |
+          bash .gitlab/scripts/install-vale.sh .vale/bin .vale/styles
+          bash .gitlab/scripts/lint-prose.sh
+
+      - run: yarn lint:knip
+
+      - run: yarn lint:format
+
   test:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Use Node.js
         uses: actions/setup-node@v7

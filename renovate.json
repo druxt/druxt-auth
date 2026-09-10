@@ -1,6 +1,44 @@
 {
-  "extends": [
-    "@nuxtjs"
-  ],
-  "labels": ["dependencies"]
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "baseBranches": ["main"],
+  "automerge": false,
+  "rangeStrategy": "bump",
+  "dependencyDashboard": true,
+  "branchPrefix": "deps/",
+  "labels": ["dependencies"],
+  "enabledManagers": ["github-actions", "npm"],
+  "packageRules": [
+    {
+      "description": "Pin GitHub Actions to immutable commit SHAs. A floating tag is a mutable reference to code that runs with repository credentials, which is the supply-chain hole this closes. Scoped to github-actions: npm packages already carry integrity hashes in the lockfile, so digest pinning there adds nothing.",
+      "matchManagers": ["github-actions"],
+      "pinDigests": true
+    },
+    {
+      "description": "Freeze the build-stack boundary. These are pinned deliberately and bumped only as part of a coordinated upgrade, not by routine automation.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": [
+        "node",
+        "siroc",
+        "jest",
+        "eslint",
+        "vue-template-compiler",
+        "@commitlint/cli",
+        "@commitlint/config-conventional"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Majors need a human. An automated major lands a breaking change on a branch nobody chose to upgrade.",
+      "matchManagers": ["npm", "github-actions"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
+      "description": "One pull request for everything else. Ungrouped updates produce a pull request per dependency and the whole set gets ignored together.",
+      "matchPackageNames": ["*"],
+      "groupName": "all dependencies",
+      "groupSlug": "all"
+    }
+  ]
 }
