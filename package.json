@@ -83,5 +83,6 @@
   "jest-junit": {
     "outputDirectory": "reports/junit",
     "outputName": "junit.xml"
-  }
+  },
+  "repository": "github:druxt/druxt-auth"
 }
