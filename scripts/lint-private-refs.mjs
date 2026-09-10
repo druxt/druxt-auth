@@ -25,7 +25,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 /** Development hosts that are meant to be here. */
-const ALLOWED = [/^localhost$/i, /^127\./, /^::1$/, /\.ddev\.site$/i, /\.lndo\.site$/i]
+const ALLOWED = [
+  /^localhost$/i,
+  /^127\./,
+  /^::1$/,
+  /\.ddev\.site$/i,
+  /\.lndo\.site$/i,
+]
 
 /** Hosts nobody outside the author's network can resolve. */
 const PRIVATE_HOST = [
@@ -44,15 +50,58 @@ const PRIVATE_HOST = [
  * remote usually carries it - `https://oauth2:TOKEN@host/path` - and
  * capturing `oauth2` instead of the host let the whole URL through.
  */
+// The bracket class takes dots as well as hex: an IPv4-mapped literal such as
+// [::ffff:10.0.0.8] is a bracketed host that carries an RFC1918 address.
 const URL_HOST =
-  /(?:[a-z][a-z0-9+.-]*:\/\/(?:[^/@\s]*@)?|\bgit@)(\[[0-9A-Fa-f:]+\]|[A-Za-z0-9._-]+)/g
+  /(?:[a-z][a-z0-9+.-]*:\/\/(?:[^/@\s]*@)?|\bgit@)(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9._-]+)/g
+
+/**
+ * The IPv4 address inside an IPv4-mapped IPv6 literal, else the host as given.
+ *
+ * A mapped address has four spellings, compressed or expanded, with the last
+ * 32 bits written as dotted decimal or as two hex groups. Matching the dotted
+ * spelling alone let `[0:0:0:0:0:ffff:0a00:0008]` name a private endpoint that
+ * every pattern below then read as a public one.
+ */
+export function mappedToIpv4(host) {
+  if (!/^[0-9a-f:.]+$/i.test(host) || !host.includes(':')) return host
+
+  // A trailing dotted quad occupies the last two groups. Rewriting it as hex
+  // first means the zero-fill below only ever counts groups.
+  const text = host.replace(
+    /(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/,
+    (_, a, b, c, d) =>
+      [((+a << 8) | +b).toString(16), ((+c << 8) | +d).toString(16)].join(':')
+  )
+
+  const [head, tail] = text.split('::')
+  const left = head ? head.split(':') : []
+  const right = tail === undefined ? [] : tail ? tail.split(':') : []
+  const groups =
+    tail === undefined
+      ? left
+      : left.concat(Array(8 - left.length - right.length).fill('0'), right)
+
+  if (groups.length !== 8 || groups.some((g) => !/^[0-9a-f]{1,4}$/i.test(g))) {
+    return host
+  }
+  const value = groups.map((g) => parseInt(g, 16))
+  if (!value.slice(0, 5).every((g) => g === 0) || value[5] !== 0xffff) {
+    return host
+  }
+  return [value[6] >> 8, value[6] & 0xff, value[7] >> 8, value[7] & 0xff].join(
+    '.'
+  )
+}
 
 /** Every private host referenced by `text`, with the line it sits on. */
 export function findPrivateRefs(text) {
   const found = []
   text.split('\n').forEach((line, index) => {
     for (const match of line.matchAll(URL_HOST)) {
-      const host = match[1].replace(/^\[|\]$/g, '').replace(/[.:]+$/, '')
+      const host = mappedToIpv4(
+        match[1].replace(/^\[|\]$/g, '').replace(/[.:]+$/, '')
+      )
       if (ALLOWED.some((pattern) => pattern.test(host))) {
         continue
       }
@@ -66,7 +115,9 @@ export function findPrivateRefs(text) {
 
 /** Tracked files, which is the set that actually gets published. */
 export function trackedFiles(root = ROOT) {
-  return execFileSync('git', ['-C', root, 'ls-files', '-z'], { encoding: 'utf8' })
+  return execFileSync('git', ['-C', root, 'ls-files', '-z'], {
+    encoding: 'utf8',
+  })
     .split('\0')
     .filter(Boolean)
 }
@@ -77,7 +128,11 @@ export function trackedFiles(root = ROOT) {
  * an opt-out marker anyone could paste would eventually be pasted over
  * a real leak.
  */
-const SELF = ['scripts/lint-private-refs.mjs', 'test/private-refs.test.js']
+const SELF = [
+  'scripts/lint-private-refs.mjs',
+  'test/private-refs.test.js',
+  'test/scripts/private-refs.test.js',
+]
 
 export function lintPrivateRefs(root = ROOT) {
   const problems = []
