@@ -119,9 +119,14 @@ lint:commit:
   stage: lint
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+  variables:
+    # Full history on both sides. --depth deepened the target branch
+    # only, so a merge request longer than the shallow window had its
+    # earliest commits validated by nothing.
+    GIT_DEPTH: 0
   script:
     - section_start "commitlint" "Validating commit messages"
-    - git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --depth 50
+    - git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
     - yarn lint:commit --from "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" --to HEAD
     - section_end "commitlint"
 
@@ -162,6 +167,9 @@ secret-detection:
   # gitleaks reads git history, and needs nothing this pipeline builds.
   dependencies: []
   variables:
+    # Full history. gitleaks scans commits, and the default shallow
+    # clone would hide every secret committed before the window.
+    GIT_DEPTH: 0
     GITLEAKS_VERSION: '8.30.1'
     GITLEAKS_SHA256: '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb'
   script:
