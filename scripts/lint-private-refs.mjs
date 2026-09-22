@@ -103,7 +103,7 @@ export function findPrivateRefs(text) {
   text.split('\n').forEach((line, index) => {
     for (const match of line.matchAll(URL_HOST)) {
       const host = mappedToIpv4(
-        match[1].replace(/^\[|\]$/g, '').replace(/[.:]+$/, '')
+        match[1].replace(/^\[|\]$/g, '').replace(/\.+$/, '')
       )
       if (ALLOWED.some((pattern) => pattern.test(host))) {
         continue

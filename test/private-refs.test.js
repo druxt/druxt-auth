@@ -136,6 +136,23 @@ describe('lint:private', () => {
     expect(output).toContain('172.16.4.5')
   })
 
+  test('fails on a collapsed IPv6 unique-local address', () => {
+    // A ULA that ends on its own colons. Stripping them left `fd00`, which
+    // no private-host pattern matches.
+    commit({
+      'a.md': 'http://[fd00::]/a',
+      'b.md': 'http://[fc00::]/b',
+      'c.md': 'http://[fe80::]/c',
+    })
+
+    const { status, output } = run()
+
+    expect(status).toBe(1)
+    expect(output).toContain('fd00::')
+    expect(output).toContain('fc00::')
+    expect(output).toContain('fe80::')
+  })
+
   test('ignores an untracked file, which is not published', () => {
     fs.writeFileSync(path.join(repo, 'scratch.md'), 'http://example.local/x')
 
