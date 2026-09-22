@@ -1,3 +1,4 @@
+import { resolve } from 'path'
 import axios from 'axios'
 import bodyParser from 'body-parser'
 
@@ -54,9 +55,10 @@ const NuxtModule = function (moduleOptions = {}) {
     },
 
     strategies: {
-      // OAuth 2 Authorization code grant with PKCE.
+      // OAuth 2 Authorization code grant with PKCE. The scheme is oauth2's,
+      // plus sign-in with credentials through Drupal's JSON login.
       'drupal-authorization_code': {
-        scheme: 'oauth2',
+        scheme: resolve(__dirname, '../templates/drupal-scheme.js'),
         endpoints: {
           authorization: baseUrl + '/oauth/authorize',
           token: baseUrl + '/oauth/token',

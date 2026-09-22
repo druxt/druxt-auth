@@ -108,6 +108,22 @@ It adds two auth strategies that can be used via the `$auth` plugin:
   this.$nuxt.$auth.loginWith('drupal-authorization_code')
   ```
 
+  With credentials, it signs in through Drupal's JSON login first, so the
+  authorize step finds a session and returns without showing a Drupal page.
+  `logout()` ends that Drupal session too, and `resetPassword()` asks Drupal
+  to email a reset link:
+  ```js
+  await this.$auth.loginWith('drupal-authorization_code', {
+    credentials: { name: '', pass: '' }
+  })
+  await this.$auth.strategy.resetPassword('editor@example.com')
+  ```
+
+  _Note:_ The session cookie must reach the authorize request, so serve
+  `/user/login`, `/user/logout`, `/user/password` and `/oauth/authorize` from
+  the site's origin through a proxy, point the `authorization` endpoint at the
+  site, and set the Consumer to approve automatically.
+
 - `drupal-password`
 
   ```js
