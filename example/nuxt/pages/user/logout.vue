@@ -58,7 +58,7 @@ export default {
 
       // A full page load, not router.push: this is what drops content fetched
       // while logged in from the DruxtStore.
-      window.location.href = window.location.origin
+      window.location.href = window.location.origin + this.$router.options.base
     }
   }
 }
