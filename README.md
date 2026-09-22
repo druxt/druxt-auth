@@ -53,7 +53,9 @@ _Note:_ Replace `[DRUPAL_CONSUMER_CLIENT_ID]` and `[DRUPAL_CONSUMER_SECRET]` wit
    with or without a `scope` parameter - until one exists that the request
    can resolve:
 
-    - Grant types: enable at least **Authorization code**
+    - Grant types: enable **Authorization code**, and **Refresh token**
+      too if you want sessions to renew. The refresh grant revalidates the
+      scope it carries, so a scope without it fails renewal
     - Granularity: e.g. **Role** with the `authenticated` role
 
 3. Create a Consumer depending on your desired authorization strategy:
@@ -107,6 +109,6 @@ It adds two auth strategies  that can be used via the `$auth` plugin:
 
 | Option | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `clientId` | `string` | Yes | `undefined` | The Drupal Consumer UUID |
+| `clientId` | `string` | Yes | `undefined` | The Drupal Consumer's **Client ID** field, not its UUID |
 | `clientSecret` | `string` | No | `undefined` | The Drupal Consumer API secret. Required for Password grant. |
-| `scope` | `array` | No | `undefined` | The OAuth scopes to request. When unset, the request carries an empty `scope` and Simple OAuth 6 falls back to the consumer's own **Authorization code scopes** - so either set this option or configure scopes on the consumer. |
+| `scope` | `array` | No | `undefined` | The OAuth scopes to request. When unset, no `scope` parameter is sent and Simple OAuth 6 falls back to the consumer's own **Authorization code scopes** - so either set this option or configure scopes on the consumer. |
