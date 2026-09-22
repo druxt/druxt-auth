@@ -76,6 +76,21 @@ describe('lint:private', () => {
     expect(run().status).toBe(1)
   })
 
+  test('fails on an scp-style remote whose user is not git', () => {
+    // GitLab CI remotes use gitlab-ci-token@, and deploy keys use their own
+    // user. Only `git@` was recognised, so these reached a public repository.
+    commit({
+      'a.md': 'deploy@example.internal:group/repo.git',
+      'b.md': 'gitlab-ci-token@example.local:group/repo.git',
+    })
+
+    const { status, output } = run()
+
+    expect(status).toBe(1)
+    expect(output).toContain('example.internal')
+    expect(output).toContain('example.local')
+  })
+
   test('steps over userinfo to reach the host', () => {
     // Capturing the username instead of the host let whole URLs through.
     commit({ 'notes.md': 'https://oauth2:token@example.local/x' })

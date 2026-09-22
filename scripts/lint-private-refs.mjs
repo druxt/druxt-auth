@@ -43,9 +43,12 @@ const PRIVATE_HOST = [
  * Userinfo has to be stepped over rather than captured, because a git
  * remote usually carries it - `https://oauth2:TOKEN@host/path` - and
  * capturing `oauth2` instead of the host let the whole URL through.
+ *
+ * The scp-style user is any user, not just `git`: CI remotes use
+ * `gitlab-ci-token@` and deploy keys use their own.
  */
 const URL_HOST =
-  /(?:[a-z][a-z0-9+.-]*:\/\/(?:[^/@\s]*@)?|\bgit@)(\[[0-9A-Fa-f:]+\]|[A-Za-z0-9._-]+)/g
+  /(?:[a-z][a-z0-9+.-]*:\/\/(?:[^/@\s]*@)?|\b[A-Za-z0-9._%+-]+@)(\[[0-9A-Fa-f:]+\]|[A-Za-z0-9._-]+)/g
 
 /** Every private host referenced by `text`, with the line it sits on. */
 export function findPrivateRefs(text) {
