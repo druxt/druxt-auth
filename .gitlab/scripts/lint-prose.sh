@@ -140,13 +140,21 @@ fi
 
 # --- the repository's markdown -----------------------------------------------
 
+# `mapfile -d` needs bash 4.4, and macOS ships 3.2.
+read_nul() {
+  markdown=()
+  while IFS= read -r -d '' entry; do
+    markdown+=("$entry")
+  done
+}
+
 markdown=()
 if [ "$all" -eq 1 ]; then
-  mapfile -d '' -t markdown < <(git -C "$root" ls-files -z -- '*.md')
+  read_nul < <(git -C "$root" ls-files -z -- '*.md')
 elif [ -n "$base" ]; then
-  mapfile -d '' -t markdown < <(git -C "$root" diff -z --name-only --diff-filter=AMR "$base" HEAD -- '*.md')
+  read_nul < <(git -C "$root" diff -z --name-only --diff-filter=AMR "$base" HEAD -- '*.md')
 else
-  mapfile -d '' -t markdown < <(git -C "$root" diff-tree -z --no-commit-id -r --name-only --diff-filter=AMR HEAD -- '*.md')
+  read_nul < <(git -C "$root" diff-tree -z --no-commit-id -r --name-only --diff-filter=AMR HEAD -- '*.md')
 fi
 existing=()
 for f in "${markdown[@]}"; do
