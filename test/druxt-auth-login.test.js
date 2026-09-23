@@ -389,3 +389,30 @@ describe('What it does not leak', () => {
     expect(tree.data.attrs.method).toBe('post')
   })
 })
+
+describe('What a wrapper component receives', () => {
+  test('includes the handlers, or it can render a form and never submit it', () => {
+    const vm = {
+      busy: false,
+      capabilities: { credentials: true, resetPassword: true },
+      credentials: { name: '', pass: '' },
+      error: null,
+      reset: false,
+      submit: jest.fn(),
+      resetPassword: jest.fn(),
+    }
+    const props = DruxtAuthLogin.druxt.propsData(vm)
+    expect(props.submit).toBe(vm.submit)
+    expect(props.resetPassword).toBe(vm.resetPassword)
+    // The readme's override example reads each of these.
+    for (const key of [
+      'busy',
+      'capabilities',
+      'credentials',
+      'error',
+      'reset',
+    ]) {
+      expect(props).toHaveProperty(key)
+    }
+  })
+})

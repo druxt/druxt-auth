@@ -26,7 +26,7 @@ import DruxtModule from 'druxt/dist/components/DruxtModule.vue'
  * </template>
  * <script>
  * export default {
- *   props: ['credentials', 'busy', 'error', 'capabilities', 'submit', 'resetPassword']
+ *   props: ['credentials', 'busy', 'error', 'reset', 'capabilities', 'submit', 'resetPassword']
  * }
  */
 export default {
@@ -231,12 +231,15 @@ export default {
      *
      * @return {PropsData}
      */
-    propsData: ({ busy, capabilities, credentials, error, reset }) => ({
-      busy,
-      capabilities,
-      credentials,
-      error,
-      reset,
+    propsData: (vm) => ({
+      busy: vm.busy,
+      capabilities: vm.capabilities,
+      credentials: vm.credentials,
+      error: vm.error,
+      reset: vm.reset,
+      // Without these a wrapper can render the form and never submit it.
+      submit: vm.submit,
+      resetPassword: vm.resetPassword,
     }),
 
     /**

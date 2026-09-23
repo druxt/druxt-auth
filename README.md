@@ -289,6 +289,12 @@ the strategy, or `DruxtAuthLoginDefault` for all of them:
     <button :disabled="busy">Sign in</button>
   </form>
 </template>
+
+<script>
+export default {
+  props: ['busy', 'capabilities', 'credentials', 'error', 'reset', 'submit', 'resetPassword'],
+}
+</script>
 ```
 
 ## Options
