@@ -26,8 +26,12 @@ export default {
   // Auto import components: https://go.nuxtjs.dev/config-components
   components: true,
 
-  // Modules for dev and build (recommended): https://go.nuxtjs.dev/config-modules
-  buildModules: [
+  // Modules: https://go.nuxtjs.dev/config-modules
+  //
+  // Not buildModules. `nuxt start` does not run those, so the authentication
+  // endpoints, the strategies and the proxy are all absent in production
+  // while the dev server looks right.
+  modules: [
     [
       'druxt-auth',
       {
@@ -37,9 +41,6 @@ export default {
     ],
     'druxt',
   ],
-
-  // Modules: https://go.nuxtjs.dev/config-modules
-  // modules: [],
 
   // DruxtJS: https://druxtjs.org
   druxt: {
