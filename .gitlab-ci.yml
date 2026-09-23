@@ -302,7 +302,10 @@ lint:prose:
   script:
     - section_start "prose" "Linting prose with Vale"
     - bash .gitlab/scripts/install-vale.sh .vale/bin .vale/styles
-    - bash .gitlab/scripts/lint-prose.sh
+    # A branch pipeline carries commit messages that are already merged, so a
+    # finding there is one nobody can act on. The merge request is the gate.
+    - if [ -n "${CI_MERGE_REQUEST_IID:-}" ]; then prose_args=""; else prose_args="--skip-commits"; fi
+    - bash .gitlab/scripts/lint-prose.sh $prose_args
     - section_end "prose"
 
 #
