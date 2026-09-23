@@ -102,7 +102,9 @@ export default {
         ((this.$auth || {}).strategies || {})[this.strategyName] || {}
       const endpoints = (scheme.options || {}).endpoints || {}
       return {
-        credentials: typeof scheme.drupalLogin === 'function',
+        credentials:
+          (scheme.options || {}).credentials !== false &&
+          typeof scheme.drupalLogin === 'function',
         resetPassword:
           typeof scheme.resetPassword === 'function' &&
           !!endpoints.passwordReset,
@@ -202,14 +204,16 @@ export default {
       try {
         const scheme = this.$auth.strategies[this.strategyName]
         await scheme.resetPassword(this.credentials.name)
+        this.reset = true
       } catch (error) {
         // A transport failure is worth reporting. A rejection from Drupal is
         // not, because it says whether the account exists.
-        if (!((error || {}).response || {}).status) {
+        if (((error || {}).response || {}).status) {
+          this.reset = true
+        } else {
           this.error = 'Could not reach the site. Try again.'
         }
       } finally {
-        this.reset = true
         this.busy = false
         this.$emit('reset')
       }

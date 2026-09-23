@@ -10,7 +10,7 @@ let mock
 /**
  * Runs the module, then replays its extendRoutes callbacks over `routes`.
  */
-const run = (routes, moduleOptions = {}) => {
+const run = (routes, moduleOptions = {}, caseSensitive = false) => {
   const callbacks = []
   mock = {
     addModule: jest.fn(),
@@ -20,6 +20,7 @@ const run = (routes, moduleOptions = {}) => {
     options: {
       buildDir: '/build',
       druxt: { baseUrl: 'https://demo-api.druxtjs.org' },
+      router: { caseSensitive },
       serverMiddleware: [],
     },
   }
@@ -68,6 +69,22 @@ describe('The login route', () => {
     const routes = run([{ path: '/:langcode?/user/login', name: 'lang' }])
     expect(login(routes)).toBeUndefined()
     expect(paths(routes)).not.toContain('/user/login')
+  })
+
+  test('leaves a login page alone whatever its case or terminal slash', () => {
+    // vue-router matches these against `/user/login`, so a site that wrote
+    // its page either way already owns the path.
+    for (const path of [
+      '/user/login/',
+      '/User/Login',
+      '/:langcode?/User/Login/',
+    ])
+      expect(login(run([{ path, name: 'site' }]))).toBeUndefined()
+  })
+
+  test('honours a case sensitive router', () => {
+    const routes = run([{ path: '/User/Login', name: 'site' }], {}, true)
+    expect(login(routes)).toBeDefined()
   })
 
   test('an unrelated page ending in the same segments does not suppress it', () => {

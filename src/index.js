@@ -83,6 +83,10 @@ const NuxtModule = function (moduleOptions = {}) {
       // plus sign-in with credentials through Drupal's JSON login.
       'drupal-authorization_code': {
         scheme: resolve(__dirname, '../templates/drupal-scheme.js'),
+        // The Drupal login endpoints are same-origin paths, which only
+        // resolve where this module registered the proxy. A site that
+        // fronts both on one origin can set this back to true.
+        credentials: !!proxy,
         endpoints: {
           // The browser-facing URL, and the default. Without credentials the
           // visitor signs in on Drupal's own page, which lives on Drupal's
@@ -245,7 +249,12 @@ const NuxtModule = function (moduleOptions = {}) {
       const tail = loginPath
         .replace(/^\//, '')
         .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      const claimed = new RegExp(`^(/:[A-Za-z0-9_]+\\??)?/${tail}$`)
+      // vue-router ignores case and accepts a terminal slash, so a site
+      // route written either way already owns the path.
+      const claimed = new RegExp(
+        `^(/:[A-Za-z0-9_]+\\??)?/${tail}/?$`,
+        (this.options.router || {}).caseSensitive ? '' : 'i'
+      )
       if (routes.find((o) => claimed.test(o.path))) {
         return
       }

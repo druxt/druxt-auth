@@ -11,6 +11,7 @@ Object {
     "drupal-authorization_code": Object {
       "clientId": "mock-client-id",
       "codeChallengeMethod": "S256",
+      "credentials": true,
       "endpoints": Object {
         "authorization": "https://demo-api.druxtjs.org/oauth/authorize",
         "authorizationBackend": "https://demo-api.druxtjs.org/oauth/authorize",
@@ -71,6 +72,7 @@ Object {
     "drupal-authorization_code": Object {
       "clientId": "mock-client-id",
       "codeChallengeMethod": "S256",
+      "credentials": true,
       "endpoints": Object {
         "authorization": "https://demo-api.druxtjs.org/oauth/authorize",
         "authorizationBackend": "https://demo-api.druxtjs.org/oauth/authorize",
@@ -131,6 +133,7 @@ Object {
     "drupal-authorization_code": Object {
       "clientId": "mock-client-id",
       "codeChallengeMethod": "S256",
+      "credentials": true,
       "endpoints": Object {
         "authorization": "https://demo-api.druxtjs.org/oauth/authorize",
         "authorizationBackend": "https://demo-api.druxtjs.org/oauth/authorize",
@@ -191,6 +194,7 @@ Object {
     "drupal-authorization_code": Object {
       "clientId": "mock-client-id",
       "codeChallengeMethod": "S256",
+      "credentials": false,
       "endpoints": Object {
         "authorization": "https://demo-api.druxtjs.org/oauth/authorize",
         "authorizationBackend": "https://demo-api.druxtjs.org/oauth/authorize",

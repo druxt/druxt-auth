@@ -36,6 +36,15 @@ describe('What the strategy can do', () => {
     expect(read(undefined).credentials).toBe(false)
   })
 
+  test('nor does a scheme whose login endpoint has no same-origin route', () => {
+    // The Drupal endpoints are relative, so without the proxy they reach
+    // Nuxt rather than Drupal. A site fronting both can set it back to true.
+    const scheme = { drupalLogin: () => {}, options: { credentials: false } }
+    expect(read(scheme).credentials).toBe(false)
+    scheme.options.credentials = true
+    expect(read(scheme).credentials).toBe(true)
+  })
+
   test('password reset needs both the method and the endpoint', () => {
     expect(read({ resetPassword: () => {} }).resetPassword).toBe(false)
     expect(
@@ -121,6 +130,16 @@ describe('Resetting a password', () => {
     })
     await resetPassword.call(context)
     expect(context.error).toBe('Could not reach the site. Try again.')
+  })
+
+  test('a transport failure leaves the retry control in place', async () => {
+    // `reset` swaps the button for "a reset link is on its way", which would
+    // contradict the alert and strand a reader who cannot try again.
+    const context = vm({
+      resetPassword: jest.fn(() => Promise.reject(new Error('offline'))),
+    })
+    await resetPassword.call(context)
+    expect(context.reset).toBe(false)
   })
 
   test('a success reports nothing but done', async () => {
