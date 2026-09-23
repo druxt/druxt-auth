@@ -50,6 +50,7 @@ jobs:
       - name: Check for AI attribution
         env:
           ATTRIBUTION_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          ATTRIBUTION_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           MERGE_REQUEST_DESCRIPTION: ${{ github.event.pull_request.body }}
         run: bash .gitlab/scripts/check-attribution.sh
 
@@ -58,6 +59,7 @@ jobs:
       - name: Lint prose
         env:
           PROSE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          PROSE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           MERGE_REQUEST_DESCRIPTION: ${{ github.event.pull_request.body }}
           PROSE_LINT_GLOB: "!{.changeset/**,example/drupal/**,CHANGELOG.md}"
         run: |

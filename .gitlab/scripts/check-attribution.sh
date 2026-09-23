@@ -4,9 +4,11 @@
 #
 # Usage: check-attribution.sh [--files-only] [<base-sha>]
 #
-# Commits: the range <base>..HEAD. Without an argument the base is read from
+# Commits: the range <base>..<head>. Without an argument the base is read from
 # ATTRIBUTION_BASE_SHA, then CI_MERGE_REQUEST_DIFF_BASE_SHA, then
-# CI_COMMIT_BEFORE_SHA. With none of those only HEAD is read.
+# CI_COMMIT_BEFORE_SHA. With none of those only <head> is read. <head> is
+# ATTRIBUTION_HEAD_SHA, else HEAD: GitHub checks out refs/pull/N/merge,
+# whose ancestry runs down a stack into the target branch.
 #
 # Description: MERGE_REQUEST_DESCRIPTION, then CI_MERGE_REQUEST_DESCRIPTION.
 # When GITLAB_API_TOKEN, CI_API_V4_URL, CI_PROJECT_ID and CI_MERGE_REQUEST_IID
@@ -72,14 +74,20 @@ if [ "$files_only" -eq 0 ]; then
   # push, and what GitLab passes as CI_COMMIT_BEFORE_SHA for a new branch.
   case "$base" in 0000000000000000000000000000000000000000) base="" ;; esac
 
+  head="${ATTRIBUTION_HEAD_SHA:-HEAD}"
+  if ! git cat-file -e "${head}^{commit}" 2>/dev/null; then
+    echo "[ERROR] head ${head} is not a commit in this repository." >&2
+    exit 2
+  fi
+
   if [ -n "$base" ]; then
     if ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
       echo "[ERROR] base ${base} is not a commit in this repository." >&2
       exit 2
     fi
-    shas="$(git rev-list "${base}..HEAD")"
+    shas="$(git rev-list "${base}..${head}")"
   else
-    shas="$(git rev-parse HEAD)"
+    shas="$(git rev-parse "$head")"
   fi
 
   for sha in $shas; do

@@ -5,10 +5,11 @@
 #
 # Usage: lint-prose.sh [--all] [<base-sha>]
 #
-# Markdown: files added or modified in <base>..HEAD; with --all, every tracked
+# Markdown: files added or modified in <base>..<head>; with --all, every tracked
 # markdown file. Without an argument the base is read from PROSE_BASE_SHA,
 # then CI_MERGE_REQUEST_DIFF_BASE_SHA, then CI_COMMIT_BEFORE_SHA. With none of
-# those the files and message of HEAD alone are read.
+# those the files and message of <head> alone are read. <head> is
+# PROSE_HEAD_SHA, else HEAD.
 #
 # Description: MERGE_REQUEST_DESCRIPTION, then CI_MERGE_REQUEST_DESCRIPTION.
 # A merge request pipeline with neither is refused, as check-attribution.sh
@@ -92,6 +93,15 @@ if [ -n "$base" ] && ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
   exit 2
 fi
 
+# The end of the range. GitHub checks out refs/pull/N/merge, and for a stacked
+# pull request that ref's ancestry runs down the stack into the target branch,
+# so HEAD carries commits this change does not own.
+head="${PROSE_HEAD_SHA:-HEAD}"
+if ! git cat-file -e "${head}^{commit}" 2>/dev/null; then
+  echo "[ERROR] head ${head} is not a commit in this repository." >&2
+  exit 2
+fi
+
 findings=0
 
 # --- commit messages and the description -------------------------------------
@@ -100,9 +110,9 @@ inputs="$work/inputs"
 mkdir -p "$inputs/commits"
 
 if [ -n "$base" ]; then
-  shas="$(git rev-list "${base}..HEAD")"
+  shas="$(git rev-list "${base}..${head}")"
 else
-  shas="$(git rev-parse HEAD)"
+  shas="$(git rev-parse "$head")"
 fi
 commits=0
 for sha in $shas; do
@@ -152,9 +162,9 @@ markdown=()
 if [ "$all" -eq 1 ]; then
   read_nul < <(git -C "$root" ls-files -z -- '*.md')
 elif [ -n "$base" ]; then
-  read_nul < <(git -C "$root" diff -z --name-only --diff-filter=AMR "$base" HEAD -- '*.md')
+  read_nul < <(git -C "$root" diff -z --name-only --diff-filter=AMR "$base" "$head" -- '*.md')
 else
-  read_nul < <(git -C "$root" diff-tree -z --no-commit-id -r --name-only --diff-filter=AMR HEAD -- '*.md')
+  read_nul < <(git -C "$root" diff-tree -z --no-commit-id -r --name-only --diff-filter=AMR "$head" -- '*.md')
 fi
 existing=()
 for f in "${markdown[@]}"; do
