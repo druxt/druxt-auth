@@ -122,4 +122,15 @@ describe('DrupalScheme', () => {
       name: 'editor',
     })
   })
+
+  test('resetPassword looks up the field the caller names', async () => {
+    await scheme().resetPassword('editor@example.com', 'name')
+    expect($auth.request.mock.calls[0][0].data).toStrictEqual({
+      name: 'editor@example.com',
+    })
+    await scheme().resetPassword('editor', 'mail')
+    expect($auth.request.mock.calls[1][0].data).toStrictEqual({
+      mail: 'editor',
+    })
+  })
 })

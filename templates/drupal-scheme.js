@@ -105,10 +105,14 @@ export default class DrupalScheme extends Oauth2Scheme {
    * Asks Drupal to email a password reset link. Drupal answers the same
    * whether or not the address has an account.
    *
-   * @param {string} mail - The address, or the account name.
+   * A Drupal username may contain `@`, so the guess is wrong for those
+   * accounts; name the field to look up when the caller knows it.
+   *
+   * @param {string} value - The address, or the account name.
+   * @param {string} [identifier] - The field to look up, `mail` or `name`.
    */
-  async resetPassword (mail) {
-    const body = /@/.test(mail) ? { mail } : { name: mail }
+  async resetPassword (value, identifier = /@/.test(value) ? 'mail' : 'name') {
+    const body = { [identifier]: value }
     await this.$auth.request({
       method: 'post',
       baseURL: '',

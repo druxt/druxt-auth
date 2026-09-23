@@ -120,6 +120,13 @@ It adds two auth strategies that can be used via the `$auth` plugin:
   await this.$auth.strategy.resetPassword('editor@example.com')
   ```
 
+  `resetPassword()` treats a value with an `@` as an address. A Drupal
+  username may contain `@`, so name the field for those accounts:
+
+  ```js
+  await this.$auth.strategy.resetPassword('editor@example.com', 'name')
+  ```
+
   _Note:_ The session cookie must reach the authorize request, which needs
   the browser to see the login and the authorize step on one site:
 
