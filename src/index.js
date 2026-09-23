@@ -238,8 +238,15 @@ const NuxtModule = function (moduleOptions = {}) {
       // A site's own page wins, and it may be language prefixed:
       // `pages/_langcode/user/login.vue` compiles to
       // `/:langcode?/user/login`, which an exact compare would miss.
-      const tail = loginPath.replace(/^\//, '')
-      if (routes.find((o) => new RegExp(`(^|/)${tail}$`).test(o.path))) {
+      // Match the whole path, or the same path behind a language prefix.
+      // Anything else would let an unrelated page ending in the same
+      // segments suppress the route. The path comes from configuration, so
+      // escape it rather than let a dot or a bracket into the pattern.
+      const tail = loginPath
+        .replace(/^\//, '')
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const claimed = new RegExp(`^(/:[A-Za-z0-9_]+\\??)?/${tail}$`)
+      if (routes.find((o) => claimed.test(o.path))) {
         return
       }
 

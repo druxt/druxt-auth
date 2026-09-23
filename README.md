@@ -254,7 +254,7 @@ strategy it asks for a username and password and signs in without sending the
 visitor to Drupal. On a strategy that cannot take credentials it renders a
 button that starts the redirect instead.
 
-Two things have to be true for the credentials form to work. Drupal must be
+The credentials form needs two conditions. Drupal must be
 same origin with the frontend, because the session cookie has to reach
 `/oauth/authorize`, so use the API proxy above. The Consumer must also have
 **Automatically authorize this client** set, or Drupal shows its own consent
@@ -262,6 +262,14 @@ page and the visitor leaves the site.
 
 Style it with your own CSS. Give the inputs a font size of at least 16px at
 coarse pointers, or iOS zooms the page when one takes focus.
+
+The proxy and this page share the `/user/login` path and do not collide. The
+module proxies that path for POST alone, which is what Drupal's JSON login
+answers on, so a GET reaches this page.
+
+A component that replaces the form receives the username and password, since
+it renders the fields. Treat an override the way you would treat any code
+handling a password.
 
 ### Replacing it
 

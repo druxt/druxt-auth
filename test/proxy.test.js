@@ -13,6 +13,7 @@ const run = (options = {}, nuxtOptions = {}) => {
     addModule: jest.fn(),
     addTemplate: jest.fn(),
     extendRoutes: jest.fn((fn) => fn([], jest.fn())),
+    nuxt: { hook: jest.fn() },
     options: {
       druxt: { baseUrl, proxy: { api: true } },
       serverMiddleware: [],
@@ -96,6 +97,7 @@ describe('The proxy entries', () => {
       addModule: jest.fn(),
       addTemplate: jest.fn(),
       extendRoutes: jest.fn((fn) => fn([], jest.fn())),
+      nuxt: { hook: jest.fn() },
       options: { druxt: { baseUrl }, serverMiddleware: [] },
     }
     DruxtAuthModule.call(mock, { clientId: 'mock-client-id' })

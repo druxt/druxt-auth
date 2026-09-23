@@ -123,13 +123,17 @@ export default {
       if (this.busy) return
       this.busy = true
       this.error = null
-      this.$emit('submit', { ...this.credentials })
+      // The username only. A listener wiring this to analytics or a
+      // breadcrumb must not receive the password, and devtools records every
+      // emitted payload.
+      this.$emit('submit', { name: this.credentials.name })
 
       try {
         const options = this.capabilities.credentials
           ? { credentials: { ...this.credentials } }
           : {}
         await this.$auth.loginWith(this.strategyName, options)
+        this.credentials.pass = ''
         this.$emit('success')
         if (this.redirect) this.$router.push(this.redirect)
       } catch (error) {
@@ -160,17 +164,6 @@ export default {
         return null
       }
 
-      // Flood control. Waiting is the only remedy, so say so.
-      if (status === 403) {
-        return message || 'Too many attempts. Try again later.'
-      }
-
-      // Drupal names the account in this one, which reflects whatever was
-      // typed back onto the page. Say nothing it did not already know.
-      if (status === 400) {
-        return 'Check the username and password, then try again.'
-      }
-
       // The credentials were right and the authorisation was refused. Saying
       // "wrong password" here sends a reader in the wrong direction.
       if (
@@ -180,6 +173,16 @@ export default {
         return 'This account is not permitted to sign in here.'
       }
 
+      // Every other answer from the site gets the same message, whatever its
+      // status. Drupal answers 400 for a username with no enabled account and
+      // 429 once an existing one trips flood control, so a message per status
+      // would tell an attacker which usernames are real. It also never
+      // repeats Drupal's own text, which names the account.
+      if (status) {
+        return 'Check the username and password, then try again. Repeated attempts are blocked for a while.'
+      }
+
+      // No answer at all, so nothing is known about the account.
       return 'Sign in failed. Try again.'
     },
 
@@ -301,6 +304,10 @@ export default {
           return h(
             'form',
             {
+              // A form with no method is a GET, and the submit listener below
+              // does not exist until hydration. Without this, submitting
+              // early puts the password in the URL, the history and the logs.
+              attrs: { method: 'post' },
               on: {
                 submit: (event) => {
                   event.preventDefault()

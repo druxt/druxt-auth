@@ -1,4 +1,4 @@
-/* global beforeEach, describe, expect, jest, test */
+/* global describe, expect, jest, test */
 
 import DruxtAuthModule from '../src'
 
@@ -68,6 +68,11 @@ describe('The login route', () => {
     const routes = run([{ path: '/:langcode?/user/login', name: 'lang' }])
     expect(login(routes)).toBeUndefined()
     expect(paths(routes)).not.toContain('/user/login')
+  })
+
+  test('an unrelated page ending in the same segments does not suppress it', () => {
+    const routes = run([{ path: '/account/user/login', name: 'other' }])
+    expect(login(routes)).toBeDefined()
   })
 
   test('can be moved', () => {

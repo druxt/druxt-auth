@@ -57,9 +57,18 @@ describe('Reading a failure', () => {
     ).toBeNull()
   })
 
-  test('flood control is shown, because waiting is the only remedy', () => {
-    const message = 'Too many failed login attempts from your IP address.'
-    expect(readError(fail(403, message))).toBe(message)
+  test('an unknown account and a flooded one read the same', () => {
+    // Drupal answers 400 when no enabled account has that name, and 429 once
+    // an existing one trips flood control. A message per status would say
+    // which usernames are real.
+    const unknown = readError(
+      fail(400, 'Sorry, unrecognized username or password.')
+    )
+    const flooded = readError(
+      fail(429, 'Too many failed login attempts from your IP address.')
+    )
+    expect(unknown).toBe(flooded)
+    expect(flooded).not.toContain('Too many failed')
   })
 
   test('bad credentials do not reflect what was typed back onto the page', () => {
@@ -67,7 +76,9 @@ describe('Reading a failure', () => {
     const typed = 'Sorry, unrecognized username or password. <script>x</script>'
     const shown = readError(fail(400, typed))
     expect(shown).not.toContain('<script>')
-    expect(shown).toBe('Check the username and password, then try again.')
+    expect(shown).toBe(
+      'Check the username and password, then try again. Repeated attempts are blocked for a while.'
+    )
   })
 
   test('a refused authorisation does not read as a wrong password', () => {
@@ -278,7 +289,7 @@ describe('Signing in', () => {
     })
     await submit.call(context)
     expect(context.error).toBe(
-      'Check the username and password, then try again.'
+      'Check the username and password, then try again. Repeated attempts are blocked for a while.'
     )
     expect(context.busy).toBe(false)
     expect(context.$emit).toHaveBeenCalledWith('error', context.error)
@@ -308,5 +319,73 @@ describe('Signing in', () => {
     const context = vm({ busy: true })
     await submit.call(context)
     expect(context.$auth.loginWith).not.toHaveBeenCalled()
+  })
+})
+
+describe('What it does not leak', () => {
+  const { submit, readError } = DruxtAuthLogin.methods
+
+  const vm = (overrides = {}) => ({
+    busy: false,
+    error: null,
+    credentials: { name: 'editor', pass: 'secret' },
+    capabilities: { credentials: true, resetPassword: false },
+    strategyName: 's',
+    redirect: undefined,
+    readError,
+    $auth: { loginWith: jest.fn(() => Promise.resolve()) },
+    $router: { push: jest.fn() },
+    $emit: jest.fn(),
+    ...overrides,
+  })
+
+  test('the submit event carries the username, never the password', async () => {
+    // A listener wiring this to analytics must not receive a secret, and
+    // devtools records every emitted payload.
+    const context = vm()
+    await submit.call(context)
+    const [, payload] = context.$emit.mock.calls.find(
+      ([name]) => name === 'submit'
+    )
+    expect(payload).toEqual({ name: 'editor' })
+    expect(JSON.stringify(context.$emit.mock.calls)).not.toContain('secret')
+  })
+
+  test('the password is cleared once the sign in succeeds', async () => {
+    const context = vm()
+    await submit.call(context)
+    expect(context.credentials.pass).toBe('')
+  })
+
+  test("no message repeats Drupal's own text, which names the account", () => {
+    const shown = readError(
+      fail(400, 'Sorry, unrecognized username or password.')
+    )
+    expect(shown).not.toContain('unrecognized')
+  })
+
+  test('the form posts, so a submit before hydration keeps the password out of the URL', () => {
+    // No method means GET, and the submit listener does not exist until the
+    // bundle runs, so the fields would serialise into the query string.
+    const h = (tag, data, children) =>
+      Array.isArray(data)
+        ? { tag, data: {}, children: data }
+        : { tag, data, children }
+    const tree = DruxtAuthLogin.druxt.slots
+      .call(
+        {
+          busy: false,
+          credentials: { name: '', pass: '' },
+          error: null,
+          reset: false,
+          capabilities: { credentials: true, resetPassword: false },
+          resetPassword: jest.fn(),
+          submit: jest.fn(),
+        },
+        h
+      )
+      .default()
+    expect(tree.tag).toBe('form')
+    expect(tree.data.attrs.method).toBe('post')
   })
 })
