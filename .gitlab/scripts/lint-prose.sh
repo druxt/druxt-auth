@@ -129,12 +129,24 @@ for sha in $shas; do
   git log -1 --format=%B "$sha" > "$inputs/commits/$(git rev-parse --short "$sha").md"
 done
 
+# A review bot appends its own summary to the description. Nobody wrote it and
+# nobody can keep it in the project voice, so the generated block goes before
+# the rest of the description is linted. An unterminated block is left alone,
+# so a stray marker cannot silently drop real prose.
+strip_generated() {
+  awk '
+    /<!-- end of auto-generated comment:/ { skip = 0; next }
+    /<!-- This is an auto-generated comment:/ { skip = 1 }
+    skip == 0 { print }
+  '
+}
+
 description_state="no description"
 if [ -n "${MERGE_REQUEST_DESCRIPTION+x}" ]; then
-  printf '%s\n' "$MERGE_REQUEST_DESCRIPTION" > "$inputs/merge-request.md"
+  printf '%s\n' "$MERGE_REQUEST_DESCRIPTION" | strip_generated > "$inputs/merge-request.md"
   description_state="the merge request description"
 elif [ -n "${CI_MERGE_REQUEST_DESCRIPTION+x}" ]; then
-  printf '%s\n' "$CI_MERGE_REQUEST_DESCRIPTION" > "$inputs/merge-request.md"
+  printf '%s\n' "$CI_MERGE_REQUEST_DESCRIPTION" | strip_generated > "$inputs/merge-request.md"
   description_state="the merge request description"
 elif [ -n "${CI_MERGE_REQUEST_IID:-}" ]; then
   echo "[ERROR] merge request pipeline, but the description is not available." >&2
