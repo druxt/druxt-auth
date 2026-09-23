@@ -142,8 +142,38 @@ lint:commit:
 # --- Test ---
 #
 
-# The end-to-end script is deliberately absent: it needs a running Drupal and
-# Nuxt, and lives in test/e2e for a human or a dedicated environment to run.
+# PHP for the example's Drupal backend, with Node alongside, because the
+# end-to-end run needs both up at once. PHP 8.2 exactly: the example's lock
+# has lcobucci/clock, which needs ~8.2, and laminas/laminas-feed, which caps
+# at ~8.2.
+.php-node:
+  image: php:8.2
+  interruptible: true
+  timeout: 30m
+  cache:
+    key:
+      files:
+        - example/drupal/composer.lock
+      prefix: php-8.2-composer
+    paths:
+      - example/drupal/vendor/
+  before_script:
+    - !reference [default, before_script]
+    - section_start "toolchain" "Installing PHP extensions, Composer and Node"
+    # python3-setuptools: this image's Python has no distutils, and the
+    # node-gyp bundled with Node 16's npm still imports it when vue-jest's
+    # deasync builds.
+    - apt-get update -yqq && apt-get install -yqq git unzip curl sqlite3 libsqlite3-dev libzip-dev libpng-dev libjpeg62-turbo-dev libfreetype6-dev libonig-dev libxml2-dev libsodium-dev python3 python3-setuptools build-essential > /dev/null
+    - docker-php-ext-configure gd --with-freetype --with-jpeg > /dev/null
+    # sodium is not optional: lcobucci/jwt signs every Simple OAuth token with it.
+    - docker-php-ext-install -j"$(nproc)" pdo_sqlite gd zip sodium opcache > /dev/null
+    - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer --version=2.8.6 > /dev/null
+    - curl -fsSL https://deb.nodesource.com/setup_16.x | bash - > /dev/null 2>&1
+    - apt-get install -yqq nodejs > /dev/null
+    - corepack enable && corepack prepare --activate
+    - node --version && php --version | head -1
+    - section_end "toolchain"
+
 test:unit:
   extends: .node
   stage: test
@@ -314,3 +344,49 @@ lint:prose:
 #
 # --- Test ---
 #
+
+# The end-to-end run: a real Drupal, a real consumer, a real browser. It is
+# the only check that exercises the module inside a Nuxt application rather
+# than against its own code.
+test:e2e:
+  extends: .php-node
+  stage: test
+  needs: []
+  variables:
+    WEBSERVER_HOST: '127.0.0.1'
+    WEBSERVER_PORT: '8888'
+    DB_FILE: /tmp/druxt-auth-e2e.sqlite
+  script:
+    - section_start "module" "Building the module"
+    - yarn install --frozen-lockfile
+    - yarn build
+    - section_end "module"
+    - section_start "backend" "Provisioning and starting the example backend"
+    - yarn example:assemble
+    - yarn example:provision
+    - yarn example:start
+    # A backend that answers is the precondition; without this the browser
+    # failures below would all read as module defects.
+    - curl -fsS "http://$WEBSERVER_HOST:$WEBSERVER_PORT/jsonapi" | grep -q '"jsonapi"'
+    - section_end "backend"
+    - section_start "frontend" "Building and serving the example frontend"
+    - yarn example:install
+    - yarn example:build
+    - yarn example:serve &
+    - bash scripts/wait-for-server.sh http://localhost:3000 120
+    - section_end "frontend"
+    - section_start "e2e" "Signing in through a browser"
+    # Not --with-deps: on arm64 Playwright falls back to an Ubuntu 20.04
+    # package list naming ttf-unifont and ttf-ubuntu-font-family, neither of
+    # which exists on this image's Debian.
+    - apt-get install -yqq --no-install-recommends libnss3 libnspr4 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2t64 fonts-liberation fonts-unifont > /dev/null
+    - npx playwright install chromium
+    - yarn test:e2e
+    - section_end "e2e"
+  after_script:
+    - cd example/drupal && .devtools/stop || true
+  artifacts:
+    when: on_failure
+    paths:
+      - example/drupal/.devtools/*.log
+    expire_in: 1 week

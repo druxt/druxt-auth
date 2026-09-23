@@ -10,6 +10,7 @@
     "nuxt",
     "oauth"
   ],
+  "repository": "github:druxt/druxt-auth",
   "license": "MIT",
   "exports": {
     ".": {
@@ -29,6 +30,14 @@
     "build:watch": "siroc build --watch",
     "changeset": "changeset",
     "example": "cd example/nuxt && yarn && yarn dev",
+    "example:assemble": "cd example/drupal && .devtools/assemble",
+    "example:build": "cd example/nuxt && yarn build",
+    "example:info": "cd example/drupal && .devtools/info",
+    "example:install": "cd example/nuxt && yarn install --frozen-lockfile",
+    "example:provision": "cd example/drupal && .devtools/provision",
+    "example:serve": "cd example/nuxt && yarn start",
+    "example:start": "cd example/drupal && .devtools/start",
+    "example:stop": "cd example/drupal && .devtools/stop",
     "hooks:install": "git config core.hooksPath .githooks",
     "lint": "yarn lint:js && yarn lint:format && yarn lint:md && yarn lint:cspell && yarn lint:private && yarn lint:attribution && yarn lint:knip",
     "lint:attribution": "bash .gitlab/scripts/check-attribution.sh",
@@ -47,6 +56,7 @@
     "release:check": "node scripts/release/check.mjs",
     "release:check:test": "node --test scripts/release/test/*.test.mjs",
     "test": "jest",
+    "test:e2e": "node test/e2e/refresh-and-logout.mjs",
     "test:watch": "jest --watch"
   },
   "dependencies": {
@@ -71,6 +81,7 @@
     "jest-junit": "^14.0.1",
     "knip": "2.43.0",
     "markdownlint-cli2": "0.10.0",
+    "playwright": "1.44.1",
     "prettier": "3.3.3",
     "semver": "^7.3.7",
     "siroc": "0.16.0",
@@ -88,6 +99,5 @@
   "jest-junit": {
     "outputDirectory": "reports/junit",
     "outputName": "junit.xml"
-  },
-  "repository": "github:druxt/druxt-auth"
+  }
 }

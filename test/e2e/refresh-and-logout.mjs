@@ -99,6 +99,17 @@ const expireAccessToken = () =>
 
 const login = async () => {
   await page.goto(`${FRONTEND}/user/login`, { waitUntil: 'networkidle' })
+
+  // The module serves this page itself, with a credential form on it. Sites
+  // that disable it keep whatever their own page did, so both are driven.
+  const form = await page.$('form input[name="pass"]')
+  if (form) {
+    await page.fill('input[name="name"]', USERNAME)
+    await page.fill('input[name="pass"]', PASSWORD)
+    await page.click('button[type="submit"]')
+    await page.waitForTimeout(2500)
+  }
+
   if (page.url().startsWith(BACKEND) && page.url().includes('/user/login')) {
     await page.fill('#edit-name', USERNAME)
     await page.fill('#edit-pass', PASSWORD)
@@ -108,7 +119,10 @@ const login = async () => {
     ])
   }
   if (page.url().includes('/oauth/authorize')) {
-    const allow = await page.$('input[value="Allow"], button[value="Allow"]')
+    // Simple OAuth labels it "Grant"; older builds said "Allow".
+    const allow = await page.$(
+      'input[value="Grant"], button[value="Grant"], input[value="Allow"], button[value="Allow"]'
+    )
     if (!allow) throw new Error(`No consent button at ${page.url()}`)
     await Promise.all([
       page.waitForNavigation({ waitUntil: 'networkidle' }).catch(() => {}),
@@ -258,30 +272,30 @@ try {
     Object.keys(residue.cookies).join(', ')
   )
 
-  const userinfo = await fetch(`${BACKEND}/oauth/userinfo`, {
+  // Playwright's own client, not `fetch`: the pipeline builds the module on
+  // Node 16, which has no global fetch, and this file runs on that Node.
+  const userinfo = await context.request.get(`${BACKEND}/oauth/userinfo`, {
     headers: { Authorization: carried.token },
   })
   check(
     'the access token still works after logout',
-    userinfo.status === 200,
-    `HTTP ${userinfo.status} from /oauth/userinfo`
+    userinfo.status() === 200,
+    `HTTP ${userinfo.status()} from /oauth/userinfo`
   )
 
   if (CLIENT_ID) {
-    const renewed = await fetch(`${BACKEND}/oauth/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
+    const renewed = await context.request.post(`${BACKEND}/oauth/token`, {
+      form: {
         grant_type: 'refresh_token',
         refresh_token: carried.refresh,
         client_id: CLIENT_ID,
-      }),
+      },
     })
     const body = await renewed.json().catch(() => ({}))
     check(
       'the refresh token still mints access tokens after logout',
-      renewed.status === 200 && !!body.access_token,
-      `HTTP ${renewed.status}`
+      renewed.status() === 200 && !!body.access_token,
+      `HTTP ${renewed.status()}`
     )
   } else {
     console.log('SKIP  refresh token after logout (set CLIENT_ID to run it)')
