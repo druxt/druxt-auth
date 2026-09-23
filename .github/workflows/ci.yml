@@ -77,6 +77,11 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    env:
+      # Job-level, not step-level: a step's `if:` cannot see env set within
+      # that same step, so the Codecov step's own `if:` needs this here.
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
     steps:
       - uses: actions/checkout@v7
         with:
@@ -95,5 +100,13 @@ jobs:
 
       - run: yarn test --reporters=default --reporters=jest-junit --runInBand
 
+      # Without a token the upload is refused on a protected branch, and the
+      # action's default is to pass anyway, so the job stayed green while
+      # nothing reached Codecov. A fork has no secret, hence the guard.
       - name: Codecov
+        if: ${{ env.CODECOV_TOKEN != '' }}
         uses: codecov/codecov-action@v7.0.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
+          directory: ./coverage
