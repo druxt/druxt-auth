@@ -85,6 +85,14 @@ TASK('Running drush site:install standard.');
 drush('site:install standard --site-name=%s', 'druxt-auth example');
 PASS('Site installed.');
 
+// Drupal 11's standard profile no longer creates content types itself.
+// Article and Page ship as separate core recipes, and without them there are
+// no node bundles for the end-to-end run's data request to read.
+TASK('Applying the Page content-type recipe.');
+drush('recipe:apply %s', getcwd() . '/web/core/recipes/page_content_type');
+drush('cache:rebuild');
+PASS('Content type applied.');
+
 TASK('Enabling druxt and simple_oauth.');
 drush('pm:enable druxt simple_oauth');
 drush('role:perm:add anonymous %s', 'access druxt resources');
@@ -110,6 +118,26 @@ if (!is_file($keys_dir . '/public.key') || !is_file($keys_dir . '/private.key'))
 }
 PASS('Keys generated.');
 
+// Simple OAuth 6 refuses an authorize request that names no scope unless the
+// consumer carries a default one, so the scope has to exist before it.
+// `roles` on the consumer is gone; a Role-granularity scope replaces it.
+TASK('Creating the authenticated scope.');
+drush('php:eval %s', '
+  \Drupal\simple_oauth\Entity\Oauth2Scope::create([
+    "id" => "druxt_authenticated",
+    "name" => "druxt:authenticated",
+    "description" => "Everything the signed-in account may do.",
+    "grant_types" => [
+      "authorization_code" => ["status" => TRUE],
+      "refresh_token" => ["status" => TRUE],
+    ],
+    "umbrella" => FALSE,
+    "granularity_id" => "role",
+    "granularity_configuration" => ["role" => "authenticated"],
+  ])->save();
+');
+PASS('Scope created.');
+
 // Public plus PKCE: a browser cannot hold a secret, and the authorization
 // code grant is the one Simple OAuth 6 keeps.
 TASK('Creating the consumer %s.', $client_id);
@@ -125,7 +153,11 @@ drush('php:eval %s', sprintf(
     "pkce" => TRUE,
     "redirect" => %s,
     "image_styles" => [],
-    "roles" => [],
+    // Simple OAuth 6 gates every grant on this field and it defaults to
+    // empty, so a consumer without it is refused whatever else is right.
+    // The roles field it replaced is gone.
+    "grant_types" => ["authorization_code", "refresh_token"],
+    "authorization_code_scopes" => ["druxt_authenticated"],
   ])->save();',
   var_export($client_id, TRUE),
   var_export($client_id, TRUE),

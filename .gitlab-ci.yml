@@ -143,18 +143,17 @@ lint:commit:
 #
 
 # PHP for the example's Drupal backend, with Node alongside, because the
-# end-to-end run needs both up at once. PHP 8.2 exactly: the example's lock
-# has lcobucci/clock, which needs ~8.2, and laminas/laminas-feed, which caps
-# at ~8.2.
+# end-to-end run needs both up at once. 8.3 matches the example's own
+# `config.platform.php`, so the lock resolves the same here as anywhere.
 .php-node:
-  image: php:8.2
+  image: php:8.3
   interruptible: true
   timeout: 30m
   cache:
     key:
       files:
         - example/drupal/composer.lock
-      prefix: php-8.2-composer
+      prefix: php-8.3-composer
     paths:
       - example/drupal/vendor/
   before_script:
@@ -356,6 +355,9 @@ test:e2e:
     WEBSERVER_HOST: '127.0.0.1'
     WEBSERVER_PORT: '8888'
     DB_FILE: /tmp/druxt-auth-e2e.sqlite
+    # The last check is guarded on this. Unset, it skips and the run still
+    # says it passed, one check lighter.
+    CLIENT_ID: d428854d-7d89-4756-816f-3ab1ddf7dd36
   script:
     - section_start "module" "Building the module"
     - yarn install --frozen-lockfile
