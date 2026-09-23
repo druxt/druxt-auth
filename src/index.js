@@ -14,7 +14,7 @@ const NuxtModule = function (moduleOptions = {}) {
     }
   }
 
-  // Check if cliend ID is provided.
+  // Check if client ID is provided.
   if (!options.auth.clientId) {
     throw new Error('DruxtAuth requires a clientId to be provided.')
   }

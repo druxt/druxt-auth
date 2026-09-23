@@ -1,38 +1,64 @@
+---
 name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
 
   # No branch filter: a pull request into any base runs CI. A stacked pull
   # request targets the branch below it rather than develop, and a filter here
   # would leave every one of them untested but green.
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  build:
+  lint:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [14.x, 16.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      # corepack reads the packageManager field, so the manager the lockfile
+      # was written by is the one that installs it.
+      - run: corepack enable && corepack prepare --activate
+
+      - run: yarn install --frozen-lockfile
+
+      - run: yarn lint:js
+
+      - run: yarn lint:md
+
+      - run: yarn lint:cspell
+
+      # This package is public, and its README and example are what people
+      # copy. A host only the author can reach must never reach a tracked file.
+      - run: yarn lint:private
+
+  test:
+    runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
 
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
-      with:
-        node-version: ${{ matrix.node-version }}
+      - name: Use Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
 
-    - run: yarn
+      - run: corepack enable && corepack prepare --activate
 
-    - run: yarn build
+      - run: yarn install --frozen-lockfile
 
-    - run: yarn lint
+      - run: yarn build
 
-    - run: yarn test --reporters=jest-junit --runInBand
+      - run: yarn test --reporters=default --reporters=jest-junit --runInBand
 
-    - name: Codecov
-      uses: codecov/codecov-action@v3.1.4
+      - name: Codecov
+        uses: codecov/codecov-action@v7.0.0

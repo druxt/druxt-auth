@@ -1,0 +1,53 @@
+[tools]
+node = "16.20.1"
+
+[tasks.install]
+description = "Install dependencies with the manager package.json declares"
+run = "corepack enable && corepack prepare --activate && yarn install --frozen-lockfile"
+
+[tasks.build]
+description = "Build the module with siroc"
+run = "yarn build"
+
+[tasks.lint]
+description = "Run every linter (js, markdown, spelling, private hosts)"
+run = "yarn lint"
+
+[tasks."lint:js"]
+description = "Lint the sources, tests and scripts"
+run = "yarn lint:js"
+
+[tasks."lint:md"]
+description = "Lint Markdown"
+run = "yarn lint:md"
+
+[tasks."lint:cspell"]
+description = "Spell-check the repository"
+run = "yarn lint:cspell"
+
+[tasks."lint:private"]
+description = "Fail if a tracked file points at a host only a private network resolves"
+run = "yarn lint:private"
+
+[tasks.test]
+description = "Run the unit tests"
+run = "yarn test"
+
+[tasks."test:e2e"]
+description = "Run the live session check (needs a running backend and frontend)"
+run = "node test/e2e/refresh-and-logout.mjs"
+
+[tasks.ci]
+description = "Everything the pipelines run, except the live check"
+depends = ["lint", "test"]
+
+[tasks.commitlint]
+description = "Validate a commit message (pass the message-file path)"
+run = "yarn lint:commit --edit"
+
+# ---------------------------------------------------------------------------
+# Git hooks. Install once per clone with `mise run hooks:install`.
+# ---------------------------------------------------------------------------
+[tasks."hooks:install"]
+description = "Point git at the committed .githooks/ directory"
+run = "git config core.hooksPath .githooks"
