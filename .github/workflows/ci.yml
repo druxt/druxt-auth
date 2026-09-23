@@ -4,8 +4,10 @@ on:
   push:
     branches: [ main, develop ]
 
+  # No branch filter: a pull request into any base runs CI. A stacked pull
+  # request targets the branch below it rather than develop, and a filter here
+  # would leave every one of them untested but green.
   pull_request:
-    branches: [ main, develop ]
 
 jobs:
   build:
