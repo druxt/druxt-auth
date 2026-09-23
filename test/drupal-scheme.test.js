@@ -27,6 +27,52 @@ describe('DrupalScheme', () => {
   const scheme = (options = {}) =>
     new DrupalScheme($auth, { name: 'drupal-authorization_code', ...options })
 
+  describe('picks the authorize URL the session can reach', () => {
+    const endpoints = () => ({
+      authorization: 'https://cms.test/oauth/authorize',
+      authorizationBackend: 'https://cms.test/oauth/authorize',
+      authorizationSameOrigin: '/oauth/authorize',
+    })
+
+    test('credentials go same-origin, because the cookie was set here', async () => {
+      const s = scheme({ endpoints: endpoints() })
+      await s.login({ credentials: { name: 'editor', pass: 'secret' } })
+      expect(s.options.endpoints.authorization).toBe('/oauth/authorize')
+    })
+
+    test('no credentials goes to Drupal, which is where its login form is', async () => {
+      const s = scheme({ endpoints: endpoints() })
+      await s.login({})
+      expect(s.options.endpoints.authorization).toBe(
+        'https://cms.test/oauth/authorize'
+      )
+    })
+
+    test("a second login does not inherit the first one's choice", async () => {
+      // The value is set per login, so a credential sign-in followed by a
+      // Drupal-page one must not keep sending the browser to the proxy.
+      const s = scheme({ endpoints: endpoints() })
+      await s.login({ credentials: { name: 'editor', pass: 'secret' } })
+      await s.login({})
+      expect(s.options.endpoints.authorization).toBe(
+        'https://cms.test/oauth/authorize'
+      )
+    })
+
+    test('without a proxy there is only the backend URL', async () => {
+      const s = scheme({
+        endpoints: {
+          authorization: 'https://cms.test/oauth/authorize',
+          authorizationBackend: 'https://cms.test/oauth/authorize',
+        },
+      })
+      await s.login({ credentials: { name: 'editor', pass: 'secret' } })
+      expect(s.options.endpoints.authorization).toBe(
+        'https://cms.test/oauth/authorize'
+      )
+    })
+  })
+
   test('login without credentials is oauth2 login', async () => {
     expect(await scheme().login({ state: 'x' })).toStrictEqual({
       oauth2: 'login',

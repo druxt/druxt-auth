@@ -44,9 +44,21 @@ export default class DrupalScheme extends Oauth2Scheme {
    * @param {object} [options.credentials] - `{ name, pass }`.
    */
   async login ({ credentials, ...options } = {}) {
+    const endpoints = this.options.endpoints
+
     if (credentials) {
       await this.drupalLogin(credentials)
     }
+
+    // Where the browser goes to authorize depends on where the session was
+    // just created. Credentials set the cookie on this origin through the
+    // proxy, so the authorize request has to come from here too. Without
+    // them Drupal shows its own login form, which is on Drupal's origin.
+    endpoints.authorization =
+      credentials && endpoints.authorizationSameOrigin
+        ? endpoints.authorizationSameOrigin
+        : endpoints.authorizationBackend || endpoints.authorization
+
     return super.login(options)
   }
 

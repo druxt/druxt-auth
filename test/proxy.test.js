@@ -58,17 +58,23 @@ describe('The proxy entries', () => {
     for (const path of ['/user/logout', '/user/password', '/oauth/authorize']) {
       expect(proxied(entries, 'POST', path)).toBe(true)
     }
+    // The authorize step is a browser redirect, so it must carry a GET too.
+    expect(proxied(entries, 'GET', '/oauth/authorize')).toBe(true)
     expect(proxied(entries, 'GET', '/oauth/userinfo')).toBe(true)
   })
 
-  test('take the login path for POST only, so the page still renders', () => {
-    // Drupal's JSON login is POST (user.login.http, methods: [POST]), and the
-    // module adds a page at the same path, which is a GET.
+  test('take the session paths for POST only, so the pages still render', () => {
+    // Drupal's JSON routes for all three are POST (user.login.http,
+    // user.logout.http, user.pass.http). A GET has to reach whatever page
+    // sits there: the login page this module adds, or a site's own logout
+    // and password pages. Proxying the GET shows Drupal's form instead.
     const entries = run()
-    expect(proxied(entries, 'POST', '/user/login')).toBe(true)
-    expect(proxied(entries, 'GET', '/user/login')).toBe(false)
-    expect(proxied(entries, 'POST', '/user/login?_format=json')).toBe(true)
-    expect(proxied(entries, 'GET', '/user/login?_format=json')).toBe(false)
+    for (const path of ['/user/login', '/user/logout', '/user/password']) {
+      expect(proxied(entries, 'POST', path)).toBe(true)
+      expect(proxied(entries, 'GET', path)).toBe(false)
+      expect(proxied(entries, 'POST', `${path}?_format=json`)).toBe(true)
+      expect(proxied(entries, 'GET', `${path}?_format=json`)).toBe(false)
+    }
   })
 
   test("keep a site's own entries, whichever form they were written in", () => {
@@ -98,22 +104,35 @@ describe('The proxy entries', () => {
 })
 
 describe('The authorize endpoint', () => {
-  test('is same-origin when the proxy is on, so the session cookie reaches it', () => {
-    // Signing in with credentials sets the Drupal session cookie on this
-    // origin. An absolute URL arrives at Drupal anonymous, and Drupal answers
-    // with its own login form instead of the grant screen.
-    expect(strategy().endpoints.authorization).toBe('/oauth/authorize')
+  test('defaults to the backend, which is where Drupal shows its login form', () => {
+    // Without credentials the visitor signs in on Drupal's own page. That
+    // page is on Drupal's origin, so the authorize request has to go there.
+    expect(strategy().endpoints.authorization).toBe(
+      `${baseUrl}/oauth/authorize`
+    )
+    expect(strategy().endpoints.authorizationBackend).toBe(
+      `${baseUrl}/oauth/authorize`
+    )
   })
 
-  test('is the backend when there is no proxy to reach it through', () => {
+  test('offers a same-origin path when the proxy provides one', () => {
+    // Credentials set the Drupal session cookie on this origin, and a cookie
+    // does not travel to the backend's.
+    expect(strategy().endpoints.authorizationSameOrigin).toBe(
+      '/oauth/authorize'
+    )
+  })
+
+  test('offers none when there is no proxy to carry it', () => {
     const endpoints = strategy({ druxt: { baseUrl } }).endpoints
+    expect(endpoints.authorizationSameOrigin).toBeUndefined()
     expect(endpoints.authorization).toBe(`${baseUrl}/oauth/authorize`)
   })
 
-  test('is a path the proxy actually carries', () => {
+  test('names a path the proxy actually carries', () => {
     // The pair is the point: a proxy entry nothing points at, or an endpoint
     // no entry carries, both read as a working same-origin setup.
-    const authorization = strategy().endpoints.authorization
-    expect(proxied(run(), 'GET', authorization)).toBe(true)
+    const sameOrigin = strategy().endpoints.authorizationSameOrigin
+    expect(proxied(run(), 'GET', sameOrigin)).toBe(true)
   })
 })
