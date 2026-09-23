@@ -3,13 +3,15 @@ module.exports = {
   extends: [
     'eslint:recommended',
     'plugin:nuxt/recommended',
-    'plugin:vue/recommended'
+    'plugin:vue/recommended',
+    // Last, so formatting rules that would fight Prettier are turned off.
+    'prettier',
   ],
   overrides: [
     {
       // Standalone ESM scripts, run directly by node: top-level await.
       files: ['*.mjs'],
-      parserOptions: { ecmaVersion: 2022, sourceType: 'module' }
-    }
-  ]
+      parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
+    },
+  ],
 }

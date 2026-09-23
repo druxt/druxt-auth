@@ -1,0 +1,18 @@
+# Informational, not blocking. The blocking gate is jest's coverageThreshold,
+# which fails the job locally and in CI without depending on an external
+# service being reachable. This adds the per-merge-request diff view on top.
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+        informational: true
+    patch:
+      default:
+        target: 80%
+        informational: true
+
+comment:
+  layout: 'reach, diff, flags, files'
+  behavior: default

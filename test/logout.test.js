@@ -79,7 +79,7 @@ describe('Logging out', () => {
 
     // A cleanup list written against `auth._token.druxt` clears nothing.
     expect(Object.keys(ctx.residue().cookies)).toEqual(
-      expect.arrayContaining([`auth._token.${ctx.scheme.name}`]),
+      expect.arrayContaining([`auth._token.${ctx.scheme.name}`])
     )
     expect(ctx.scheme.name).toBe('drupal-authorization_code')
   })

@@ -1,20 +1,12 @@
 {
-  "files": [
-    "**/*.{js,vue,mjs,json,md,yml,yaml}"
-  ],
+  "files": ["**/*.{js,vue,mjs,json,md,yml,yaml}"],
   "dictionaryDefinitions": [
     {
       "name": "project-words",
       "path": "./.cspell-project-words.txt"
     }
   ],
-  "dictionaries": [
-    "project-words",
-    "bash",
-    "misc",
-    "node",
-    "softwareTerms"
-  ],
+  "dictionaries": ["project-words", "bash", "misc", "node", "softwareTerms"],
   "ignorePaths": [
     ".git/",
     "node_modules/",
@@ -32,11 +24,12 @@
     "*.svg",
     "*.png",
     "*.ico",
-    "*.min.*"
+    "*.min.*",
+    ".vale/",
+    "reports/",
+    ".yarn-cache/"
   ],
   "useGitignore": true,
   "language": "en,en-GB",
-  "ignoreRegExpList": [
-    "\\\\e\\[0K\\w*"
-  ]
+  "ignoreRegExpList": ["\\\\e\\[0K\\w*"]
 }

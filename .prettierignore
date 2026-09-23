@@ -1,0 +1,26 @@
+node_modules/
+dist/
+coverage/
+reports/
+test-results/
+playwright-report/
+example/drupal/
+package-lock.json
+CHANGELOG.md
+**/__snapshots__/
+
+# Pipeline definitions are owned by yamllint, not prettier. The two disagree on
+# comment spacing, and letting both format these files means every run of one
+# undoes the other.
+.gitlab-ci.yml
+.github/workflows/
+.vale/
+example/drupal/vendor/
+example/drupal/web/
+example/nuxt/dist/
+example/nuxt/.nuxt/
+
+# Lodash templates the module writes into a consuming application. They are
+# not valid JavaScript until siroc interpolates them, so Prettier cannot parse
+# them and ESLint is not pointed at them either.
+templates/

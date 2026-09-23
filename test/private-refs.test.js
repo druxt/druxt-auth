@@ -31,7 +31,9 @@ const commit = (files) => {
 }
 
 const run = () => {
-  const result = spawnSync(process.execPath, [LINTER, repo], { encoding: 'utf8' })
+  const result = spawnSync(process.execPath, [LINTER, repo], {
+    encoding: 'utf8',
+  })
   return { status: result.status, output: result.stdout + result.stderr }
 }
 
@@ -62,7 +64,9 @@ describe('lint:private', () => {
   })
 
   test('fails on a private host, naming the file and line', () => {
-    commit({ 'docs/setup.md': 'first\nsecond\nsee http://example.local/path\n' })
+    commit({
+      'docs/setup.md': 'first\nsecond\nsee http://example.local/path\n',
+    })
 
     const { status, output } = run()
 
@@ -102,7 +106,11 @@ describe('lint:private', () => {
   })
 
   test('fails on private address ranges', () => {
-    commit({ 'a.md': 'http://10.1.2.3/a', 'b.md': 'http://192.168.0.9/b', 'c.md': 'http://172.16.4.5/c' })
+    commit({
+      'a.md': 'http://10.1.2.3/a',
+      'b.md': 'http://192.168.0.9/b',
+      'c.md': 'http://172.16.4.5/c',
+    })
 
     const { status, output } = run()
 
@@ -110,6 +118,39 @@ describe('lint:private', () => {
     expect(output).toContain('10.1.2.3')
     expect(output).toContain('192.168.0.9')
     expect(output).toContain('172.16.4.5')
+  })
+
+  test('fails on a private address written as an IPv4-mapped IPv6 literal', () => {
+    // Same three addresses as above, in the spellings that read as IPv6.
+    commit({
+      'a.md': 'http://[::ffff:10.1.2.3]/a',
+      'b.md': 'http://[::ffff:c0a8:0009]/b',
+      'c.md': 'http://[0:0:0:0:0:ffff:172.16.4.5]/c',
+    })
+
+    const { status, output } = run()
+
+    expect(status).toBe(1)
+    expect(output).toContain('10.1.2.3')
+    expect(output).toContain('192.168.0.9')
+    expect(output).toContain('172.16.4.5')
+  })
+
+  test('fails on a collapsed IPv6 unique-local address', () => {
+    // A ULA that ends on its own colons. Stripping them left `fd00`, which
+    // no private-host pattern matches.
+    commit({
+      'a.md': 'http://[fd00::]/a',
+      'b.md': 'http://[fc00::]/b',
+      'c.md': 'http://[fe80::]/c',
+    })
+
+    const { status, output } = run()
+
+    expect(status).toBe(1)
+    expect(output).toContain('fd00::')
+    expect(output).toContain('fc00::')
+    expect(output).toContain('fe80::')
   })
 
   test('ignores an untracked file, which is not published', () => {
@@ -121,7 +162,9 @@ describe('lint:private', () => {
   test('says nothing about a bare project name, which it cannot see', () => {
     // The documented gap: prose has no host shape to match, so a green
     // run is not evidence that an internal name is absent.
-    commit({ 'README.md': 'mirrored to the internal group as some-private-project' })
+    commit({
+      'README.md': 'mirrored to the internal group as some-private-project',
+    })
 
     expect(run().status).toBe(0)
   })

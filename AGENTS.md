@@ -7,7 +7,7 @@ easy to get wrong here.
 ## The module is configuration, so the tests are about behaviour
 
 `src/index.js` mostly assembles options for @nuxtjs/auth-next. A change that
-looks cosmetic can switch off session renewal, and nothing fails loudly.
+looks cosmetic can switch off session renewal, and nothing reports it.
 `test/refresh.test.js` and `test/logout.test.js` drive the real `Oauth2Scheme`
 with the module's own strategy config for that reason. If a change makes one
 of them fail, the question is which behaviour changed, not which assertion to
@@ -36,8 +36,8 @@ the other. Nothing on the GitHub side lints the GitLab file, so `lint:yaml`
 runs actionlint over the workflow in return.
 
 Secret scanning is gitleaks, deliberately. GitLab's `Security/Secret-Detection`
-template is an Ultimate-tier feature: on a non-Ultimate instance the include
-produces no job at all, so the config reads as coverage while scanning
+template is an Ultimate-tier feature. On a non-Ultimate instance the include
+does not produce a job, so the config reads as coverage while scanning
 nothing.
 
 ## The toolchain is old on purpose
@@ -49,9 +49,9 @@ what runs.
 
 ## Commands
 
-| Command | What it does |
-| ------- | ------------ |
-| `mise run ci` | Everything the pipelines run |
-| `yarn lint` | JS, Markdown, spelling, private hosts |
-| `yarn test` | The unit suites |
+| Command             | What it does                                  |
+| ------------------- | --------------------------------------------- |
+| `mise run ci`       | Everything the pipelines run                  |
+| `yarn lint`         | JS, Markdown, spelling, private hosts         |
+| `yarn test`         | The unit suites                               |
 | `mise run test:e2e` | The live session check, needs a running stack |

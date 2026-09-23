@@ -1,8 +1,13 @@
+automerge
+coderabbit
 commitlint
 corepack
 ddev
+docroot
+drush
 druxt
 druxttest
+knip
 lndo
 markdownlint
 networkidle

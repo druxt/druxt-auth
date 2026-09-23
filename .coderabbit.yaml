@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit skips any review over 100 changed files, and a Drupal example
+# carries hundreds of generated ones. The filters below leave the module, the
+# tooling and the pipelines, which is what a reviewer can act on.
+language: en-AU
+reviews:
+  path_filters:
+    # Drupal's own exports, written by drush, never by hand.
+    - '!example/drupal/config/**'
+    - '!example/drupal/content/**'
+    # Composer's scaffolded docroot.
+    - '!example/drupal/web/**'
+    # Lock files.
+    - '!**/package-lock.json'
+    - '!**/composer.lock'
+    # Playwright baselines.
+    - '!test/e2e/__snapshots__/**'
+  auto_review:
+    enabled: true
+    drafts: false

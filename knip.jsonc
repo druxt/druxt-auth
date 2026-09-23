@@ -1,0 +1,21 @@
+{
+  "$schema": "https://unpkg.com/knip@2/schema.json",
+  "entry": ["src/index.js", "scripts/*.mjs", "test/**/*.test.js"],
+  "project": ["src/**/*.{js,vue}", "scripts/**/*.mjs"],
+  "ignoreDependencies": [
+    // Invoked by name from .gitlab-ci.yml and .github/workflows, never
+    // imported. knip does not parse pipeline YAML.
+    "jest-junit",
+    // Registered by Jest through a transform name string in jest.config.js
+    // rather than imported.
+    "esbuild-jest",
+    "vue-jest",
+    // Peer of the Vue toolchain, resolved by vue-jest at runtime.
+    "vue-template-compiler",
+    // Used by the example application, which knip does not treat as an entry
+    // point because it is a separate package.
+    "druxt",
+    // The Babel bridge siroc needs for the Vue 2 build.
+    "babel-core"
+  ]
+}
