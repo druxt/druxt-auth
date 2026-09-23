@@ -43,7 +43,7 @@ export const WINDOW = 30000
  * Whether an answer is worth refreshing for.
  *
  * @param {Error} error - The rejected request.
- * @param {object} session - `{ loggedIn, hasRefreshToken }`.
+ * @param {object} session - `{ loggedIn, hasRefreshToken, tokenUrl }`.
  * @returns {boolean}
  */
 export const shouldRefresh = (error, session = {}) => {
@@ -55,6 +55,11 @@ export const shouldRefresh = (error, session = {}) => {
   // No config is a failure that cannot be replayed, and a replay that fails
   // again is a real sign-out.
   if (!config || config[RETRIED]) return false
+
+  // The refresh itself runs on this instance, so it reaches this handler.
+  // Refreshing for it would await the promise it is already inside, and the
+  // site would hang rather than sign out.
+  if (session.tokenUrl && config.url === session.tokenUrl) return false
 
   return Boolean(session.loggedIn && session.hasRefreshToken)
 }
@@ -108,9 +113,12 @@ export default function (context) {
     const $auth = auth()
     const strategy = ($auth || {}).strategy
     const refreshToken = (strategy || {}).refreshToken
+    const endpoints = ((strategy || {}).options || {}).endpoints || {}
+    const token = endpoints.refresh || endpoints.token
     return {
       loggedIn: Boolean($auth && $auth.loggedIn),
       hasRefreshToken: Boolean(refreshToken && refreshToken.get()),
+      tokenUrl: typeof token === 'string' ? token : (token || {}).url,
     }
   }
 

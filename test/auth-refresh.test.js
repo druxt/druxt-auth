@@ -1,4 +1,4 @@
-/* global describe, expect, jest, test */
+/* global afterEach, describe, expect, jest, test */
 
 import plugin, {
   GRACE,
@@ -34,6 +34,16 @@ describe('Whether an answer is worth refreshing for', () => {
     ).toBe(false)
   })
 
+  test('a failure on the refresh request itself is not', () => {
+    // The refresh runs on the same instance, so it reaches this handler.
+    // Refreshing for it would await the promise it is already inside.
+    const session = { ...signedIn, tokenUrl: 'https://cms/oauth/token' }
+    expect(
+      shouldRefresh(answer(401, { url: 'https://cms/oauth/token' }), session)
+    ).toBe(false)
+    expect(shouldRefresh(answer(401, { url: '/jsonapi' }), session)).toBe(true)
+  })
+
   test('a failure with no answer at all is not', () => {
     expect(shouldRefresh(new Error('offline'), signedIn)).toBe(false)
     expect(shouldRefresh(undefined, signedIn)).toBe(false)
@@ -41,6 +51,11 @@ describe('Whether an answer is worth refreshing for', () => {
 })
 
 describe('Recovering', () => {
+  // Restored here rather than at the end of each test: a restore after the
+  // assertions only runs when they all pass, and a failure would otherwise
+  // leave Date.now mocked for everything after it.
+  afterEach(() => jest.restoreAllMocks())
+
   const setup = ({ refreshTokens, token = 'Bearer new' } = {}) => {
     let onRejected
     const instance = {
@@ -57,6 +72,7 @@ describe('Recovering', () => {
       loggedIn: true,
       refreshTokens: refreshTokens || jest.fn(() => Promise.resolve()),
       strategy: {
+        options: { endpoints: { token: 'https://cms/oauth/token' } },
         refreshToken: { get: () => 'refresh' },
         token: { get: () => token },
       },
@@ -95,6 +111,30 @@ describe('Recovering', () => {
     expect($auth.refreshTokens).toHaveBeenCalledTimes(1)
   })
 
+  test('a refresh refused with a 401 signs out rather than hanging', async () => {
+    // The refresh POST runs on this instance, so its own 401 reaches the
+    // handler. Treating it as refreshable awaits the in-flight refresh,
+    // which is the request that just failed, and nothing ever settles.
+    let reject
+    const refused = answer(401, { url: 'https://cms/oauth/token' })
+    // A real refresh answers a tick later, by which time the shared promise
+    // is in place and a second refresh would wait on it.
+    const refreshTokens = jest.fn(() =>
+      Promise.resolve().then(() => reject(refused))
+    )
+    const ctx = setup({ refreshTokens })
+    reject = ctx.reject
+
+    const settled = await Promise.race([
+      ctx.reject(answer(401, { url: '/jsonapi' })).then(
+        () => 'replayed',
+        () => 'signed out'
+      ),
+      new Promise((resolve) => setTimeout(() => resolve('hung'), 50)),
+    ])
+    expect(settled).toBe('signed out')
+  })
+
   test('a failed refresh reports the original answer, not the refresh error', async () => {
     const refreshTokens = jest.fn(() =>
       Promise.reject(new Error('refresh gone'))
@@ -107,9 +147,8 @@ describe('Recovering', () => {
   test('gives up once a backend revokes continuously', () => {
     // Each burst costs one refresh, so reaching the cap means refreshes keep
     // working while requests keep failing.
-    const now = jest.spyOn(Date, 'now')
-    let clock = 0
-    now.mockImplementation(() => clock)
+    let clock = 1000000
+    jest.spyOn(Date, 'now').mockImplementation(() => clock)
     const { $auth, reject } = setup()
 
     const burst = async () => {
@@ -123,7 +162,6 @@ describe('Recovering', () => {
       const over = answer(401, { url: '/over' })
       await expect(reject(over)).rejects.toBe(over)
       expect($auth.refreshTokens).toHaveBeenCalledTimes(LIMIT)
-      now.mockRestore()
     })()
   })
 
@@ -140,16 +178,27 @@ describe('Recovering', () => {
     expect($auth.refreshTokens).toHaveBeenCalledTimes(1)
   })
 
-  test('once the grace window passes, a refusal refreshes again', async () => {
-    const now = jest.spyOn(Date, 'now')
-    let clock = 0
-    now.mockImplementation(() => clock)
+  test('the grace window holds, and a refusal past it refreshes again', async () => {
+    // The clock starts past zero on purpose. At zero the first refresh sets
+    // refreshedAt to 0, which the guard reads as "never refreshed", so the
+    // second refusal refreshes whatever GRACE says and the window is never
+    // actually under test.
+    let clock = 1000000
+    jest.spyOn(Date, 'now').mockImplementation(() => clock)
     const { $auth, reject } = setup()
+
     await reject(answer(401, { url: '/first' }))
-    clock += GRACE + 1
-    await reject(answer(401, { url: '/later' }))
+    expect($auth.refreshTokens).toHaveBeenCalledTimes(1)
+
+    // Inside the window: the token in hand is the one a refresh would fetch.
+    clock += GRACE - 1
+    await reject(answer(401, { url: '/inside' }))
+    expect($auth.refreshTokens).toHaveBeenCalledTimes(1)
+
+    // Past it: the token may have expired, so this one does refresh.
+    clock += 2
+    await reject(answer(401, { url: '/past' }))
     expect($auth.refreshTokens).toHaveBeenCalledTimes(2)
-    now.mockRestore()
   })
 
   test('reads $auth when it is needed, not when it is attached', async () => {
