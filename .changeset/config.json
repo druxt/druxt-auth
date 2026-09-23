@@ -5,6 +5,9 @@
   "fixed": [],
   "linked": [],
   "access": "restricted",
+  "snapshot": {
+    "useCalculatedVersion": true
+  },
   "baseBranch": "develop",
   "updateInternalDependencies": "patch",
   "ignore": []
