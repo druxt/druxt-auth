@@ -11,7 +11,7 @@ Object {
       "clientId": "mock-client-id",
       "codeChallengeMethod": "S256",
       "endpoints": Object {
-        "authorization": "https://demo-api.druxtjs.org/oauth/authorize",
+        "authorization": "/oauth/authorize",
         "token": "https://demo-api.druxtjs.org/oauth/token",
         "userInfo": "/oauth/userinfo",
       },
@@ -68,7 +68,7 @@ Object {
       "clientId": "mock-client-id",
       "codeChallengeMethod": "S256",
       "endpoints": Object {
-        "authorization": "https://demo-api.druxtjs.org/oauth/authorize",
+        "authorization": "/oauth/authorize",
         "token": "https://demo-api.druxtjs.org/oauth/token",
         "userInfo": "/oauth/userinfo",
       },
@@ -125,7 +125,7 @@ Object {
       "clientId": "mock-client-id",
       "codeChallengeMethod": "S256",
       "endpoints": Object {
-        "authorization": "https://demo-api.druxtjs.org/oauth/authorize",
+        "authorization": "/oauth/authorize",
         "token": "https://demo-api.druxtjs.org/oauth/token",
         "userInfo": "/oauth/userinfo",
       },

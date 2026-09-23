@@ -23,6 +23,26 @@ const run = (options = {}, nuxtOptions = {}) => {
   return mock.options.proxy
 }
 
+/** The generated `drupal-authorization_code` strategy. */
+const strategy = (nuxtOptions = {}) => {
+  const mock = {
+    addModule: jest.fn(),
+    // Every hook the module may reach for, so a later branch adding one does
+    // not fail here as a missing function rather than as a real change.
+    addPlugin: jest.fn(),
+    addTemplate: jest.fn(),
+    extendRoutes: jest.fn((fn) => fn([], jest.fn())),
+    nuxt: { hook: jest.fn() },
+    options: {
+      druxt: { baseUrl, proxy: { api: true } },
+      serverMiddleware: [],
+      ...nuxtOptions,
+    },
+  }
+  DruxtAuthModule.call(mock, { clientId: 'mock-client-id' })
+  return mock.options.auth.strategies['drupal-authorization_code']
+}
+
 /** The context of an entry, which is a bare string or a [context, options] pair. */
 const contextOf = (entry) => (Array.isArray(entry) ? entry[0] : entry)
 
@@ -74,5 +94,26 @@ describe('The proxy entries', () => {
     }
     DruxtAuthModule.call(mock, { clientId: 'mock-client-id' })
     expect(mock.options.proxy).toBeUndefined()
+  })
+})
+
+describe('The authorize endpoint', () => {
+  test('is same-origin when the proxy is on, so the session cookie reaches it', () => {
+    // Signing in with credentials sets the Drupal session cookie on this
+    // origin. An absolute URL arrives at Drupal anonymous, and Drupal answers
+    // with its own login form instead of the grant screen.
+    expect(strategy().endpoints.authorization).toBe('/oauth/authorize')
+  })
+
+  test('is the backend when there is no proxy to reach it through', () => {
+    const endpoints = strategy({ druxt: { baseUrl } }).endpoints
+    expect(endpoints.authorization).toBe(`${baseUrl}/oauth/authorize`)
+  })
+
+  test('is a path the proxy actually carries', () => {
+    // The pair is the point: a proxy entry nothing points at, or an endpoint
+    // no entry carries, both read as a working same-origin setup.
+    const authorization = strategy().endpoints.authorization
+    expect(proxied(run(), 'GET', authorization)).toBe(true)
   })
 })

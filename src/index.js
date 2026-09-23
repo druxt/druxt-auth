@@ -71,7 +71,11 @@ const NuxtModule = function (moduleOptions = {}) {
       'drupal-authorization_code': {
         scheme: resolve(__dirname, '../templates/drupal-scheme.js'),
         endpoints: {
-          authorization: baseUrl + '/oauth/authorize',
+          // Same origin when the proxy is on, because signing in with
+          // credentials sets the Drupal session cookie on this origin and a
+          // cookie does not travel to the backend's. Sites that sign in on
+          // Drupal's own page want the opposite, and override the strategy.
+          authorization: (!proxy ? baseUrl : '') + '/oauth/authorize',
           token: baseUrl + '/oauth/token',
           userInfo: (!proxy ? baseUrl : '') + '/oauth/userinfo',
         },
