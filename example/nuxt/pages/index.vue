@@ -1,25 +1,32 @@
 <template>
   <div>
-    <template v-if="!this.$nuxt.$auth.loggedIn">
-      <h1>You are not logged in :(</h1>
-      <button @click="$auth.loginWith('drupal-authorization_code')">
-        Click here to log in with Authorization grant
-      </button>
-      <details
-        open
-        style="border: 1px solid; padding: 0.5rem; margin-top: 1rem"
-      >
-        <summary>Login with Password grant</summary>
-        <label>Username: <input v-model="username" /></label><br />
-        <label>Password: <input v-model="password" /></label><br />
-        <button @click="login">Log in</button>
-      </details>
+    <template v-if="!$auth.loggedIn">
+      <h1>You are not signed in</h1>
+
+      <!-- The module adds this page, so there is no file for it here. -->
+      <p><NuxtLink to="/user/login">Sign in</NuxtLink></p>
+
+      <h2>Or sign in from anywhere</h2>
+      <DruxtAuthLogin />
+
+      <h2>Password grant</h2>
+      <p>
+        Needs the
+        <a href="https://www.drupal.org/project/simple_oauth_password_grant">
+          Simple OAuth Password Grant</a
+        >
+        module on the backend, and the grant enabled on the Consumer.
+      </p>
+      <label>Username: <input v-model="username" /></label><br />
+      <label>Password: <input v-model="password" type="password" /></label
+      ><br />
+      <button @click="passwordGrant">Sign in</button>
     </template>
 
     <template v-else>
-      <h1>Yay, you are logged in!</h1>
+      <h1>You are signed in</h1>
       <pre><code v-text="$auth.user" /></pre>
-      <button @click="$auth.logout()">Click here to log out</button>
+      <p><NuxtLink to="/user/logout">Sign out</NuxtLink></p>
     </template>
   </div>
 </template>
@@ -27,16 +34,13 @@
 <script>
 export default {
   data: () => ({
-    username: 'admin',
-    password: 'password',
+    username: 'druxttest',
+    password: 'druxttest-pass',
   }),
   methods: {
-    login() {
+    passwordGrant() {
       this.$auth.loginWith('drupal-password', {
-        data: {
-          username: this.username,
-          password: this.password,
-        },
+        data: { username: this.username, password: this.password },
       })
     },
   },

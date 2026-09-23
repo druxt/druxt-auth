@@ -136,3 +136,107 @@ describe('DruxtAuth Nuxt module', () => {
     expect(portable(mock.options.auth)).toMatchSnapshot()
   })
 })
+
+describe('Where the options come from', () => {
+  beforeEach(() => {
+    mock = {
+      addModule: jest.fn(),
+      addPlugin: jest.fn(),
+      addTemplate: jest.fn(),
+      extendRoutes: jest.fn((fn) => fn([], jest.fn())),
+      nuxt: { hook: jest.fn() },
+      options: {
+        druxt: { baseUrl: 'https://demo-api.druxtjs.org' },
+        serverMiddleware: [],
+      },
+    }
+  })
+
+  test('a value configured under druxt.auth survives', () => {
+    // These keys are declared to name the shape. Declared after the
+    // configured values rather than before, each would reset one to
+    // undefined, and a site that set its password Consumer through
+    // druxt.auth would silently send the browser Consumer instead.
+    mock.options.druxt.auth = {
+      clientId: 'from-druxt',
+      clientSecret: 'secret-from-druxt',
+      passwordClientId: 'password-from-druxt',
+      scope: 'scope-from-druxt',
+    }
+    DruxtAuthModule.call(mock, {})
+    const strategy = mock.options.auth.strategies['drupal-authorization_code']
+    expect(strategy.clientId).toBe('from-druxt')
+    expect(strategy.scope).toBe('scope-from-druxt')
+  })
+
+  test('module options still win over druxt.auth', () => {
+    mock.options.druxt.auth = { clientId: 'from-druxt' }
+    DruxtAuthModule.call(mock, { clientId: 'from-module' })
+    expect(
+      mock.options.auth.strategies['drupal-authorization_code'].clientId
+    ).toBe('from-module')
+  })
+})
+
+describe('The password grant token request', () => {
+  const axios = require('axios')
+
+  /** The form body the middleware posts to Drupal. */
+  const postedBody = async (moduleOptions) => {
+    axios.post.mockClear()
+    DruxtAuthModule.call(mock, { clientId: 'mock-client-id', ...moduleOptions })
+    const req = {
+      method: 'POST',
+      body: { grant_type: 'password', username: 'u', password: 'p' },
+    }
+    await mock.options.serverMiddleware[0].handler(
+      req,
+      { end: jest.fn() },
+      jest.fn()
+    )
+    return new URLSearchParams(axios.post.mock.calls[0][1])
+  }
+
+  test('carries the secret a confidential consumer needs', async () => {
+    const body = await postedBody({ clientSecret: 'shh' })
+    expect(body.get('client_id')).toBe('mock-client-id')
+    expect(body.get('client_secret')).toBe('shh')
+    expect(body.get('grant_type')).toBe('password')
+  })
+
+  test('leaves the secret out when there is none, rather than sending "undefined"', async () => {
+    // A public consumer has no secret, and OAuth asks for one from
+    // confidential clients alone. `client_secret=undefined` is a string that
+    // fails validation, so the grant never works for a public consumer.
+    const body = await postedBody({})
+    expect(body.has('client_secret')).toBe(false)
+    expect(body.get('client_id')).toBe('mock-client-id')
+  })
+
+  test('uses its own consumer when a site names one', async () => {
+    // The browser flow needs a public Consumer and the password grant a
+    // confidential one, and a Consumer cannot be both. A site that runs both
+    // points passwordClientId at the second.
+    const body = await postedBody({
+      passwordClientId: 'password-client',
+      clientSecret: 'shh',
+    })
+    expect(body.get('client_id')).toBe('password-client')
+    expect(body.get('client_secret')).toBe('shh')
+  })
+
+  test('falls back to the one clientId when a site runs a single consumer', async () => {
+    const body = await postedBody({ clientSecret: 'shh' })
+    expect(body.get('client_id')).toBe('mock-client-id')
+  })
+
+  test('says nothing about deprecation, because the grant is supported', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+    DruxtAuthModule.call(mock, {
+      clientId: 'mock-client-id',
+      clientSecret: 'shh',
+    })
+    expect(warn).not.toHaveBeenCalled()
+    warn.mockRestore()
+  })
+})
