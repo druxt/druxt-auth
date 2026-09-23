@@ -25,23 +25,34 @@ const NuxtModule = function (moduleOptions = {}) {
   // Nuxt proxy integration.
   const proxy = (options.proxy || {}).api
   if (proxy) {
-    if (this.options.proxy) {
-      if (Array.isArray(this.options.proxy)) {
-        this.options.proxy = [
-          ...this.options.proxy,
-          baseUrl + '/oauth/userinfo',
-        ]
-      } else {
-        this.options.proxy = {
-          ...this.options.proxy,
-          '/oauth/userinfo': baseUrl,
-        }
-      }
-    } else {
-      this.options.proxy = {
-        '/oauth/userinfo': baseUrl,
-      }
-    }
+    // The array form throughout, because one entry below is a function and an
+    // object cannot key on one. @nuxtjs/proxy reads both and treats a bare
+    // string, a [context, target] pair and a [context, options] pair alike.
+    const existing = !this.options.proxy
+      ? []
+      : Array.isArray(this.options.proxy)
+        ? this.options.proxy
+        : Object.entries(this.options.proxy)
+
+    this.options.proxy = [
+      ...existing,
+      ['/oauth/userinfo', { target: baseUrl }],
+
+      // Signing in with credentials puts a Drupal session cookie in the
+      // browser, and it only reaches the authorize request when Drupal
+      // answers on this origin. These four are what that takes.
+      //
+      // `/user/login` is proxied for POST alone. Drupal's JSON login is
+      // POST (user.login.http, methods: [POST]), and a GET has to reach the
+      // login page this module adds rather than Drupal's own form.
+      [
+        (path, req) => path === '/user/login' && req.method === 'POST',
+        { target: baseUrl },
+      ],
+      ['/user/logout', { target: baseUrl }],
+      ['/user/password', { target: baseUrl }],
+      ['/oauth/authorize', { target: baseUrl }],
+    ]
   }
 
   // @nuxtjs/auth-next module settings.

@@ -123,11 +123,15 @@ It adds two auth strategies that can be used via the `$auth` plugin:
   _Note:_ The session cookie must reach the authorize request, which needs
   the browser to see the login and the authorize step on one site:
 
-  | Setup                                       | Credentials                                                                                                                                              |
-  | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-  | Nuxt server proxying Drupal, on any servers | Works. Proxy `/user/login`, `/user/logout`, `/user/password` and `/oauth/authorize`, and point the `authorization` endpoint at the site.                 |
-  | Subdomains of one domain, no proxy          | Point the endpoints at Drupal's absolute URLs, and allow credentials for the frontend's origin in Drupal's CORS.                                         |
-  | Different domains, no proxy                 | Not supported: the session cookie would be a third-party cookie. Call `loginWith` without credentials, which redirects to Drupal's login page as before. |
+  | Setup                                       | Credentials                                                                                                                                                                                              |
+  | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | Nuxt server proxying Drupal, on any servers | Works, and `druxt: { proxy: { api: true } }` sets it up. The module proxies `/user/login`, `/user/logout`, `/user/password` and `/oauth/authorize`, and points the `authorization` endpoint at the site. |
+  | Subdomains of one domain, no proxy          | Point the endpoints at Drupal's absolute URLs, and allow credentials for the frontend's origin in Drupal's CORS.                                                                                         |
+  | Different domains, no proxy                 | Not supported: the session cookie would be a third-party cookie. Call `loginWith` without credentials, which redirects to Drupal's login page as before.                                                 |
+
+  `/user/login` is proxied for POST alone, which is the verb Drupal's JSON
+  login answers on. A GET reaches the frontend, so a login page at that path
+  still renders.
 
   The Consumer must approve automatically, or the authorize step shows
   Drupal's consent page.
