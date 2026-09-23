@@ -62,9 +62,13 @@ jobs:
           PROSE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           MERGE_REQUEST_DESCRIPTION: ${{ github.event.pull_request.body }}
           PROSE_LINT_GLOB: "!{.changeset/**,example/drupal/**,CHANGELOG.md}"
+          # A push carries commit messages that are already merged, so a
+          # finding there is one nobody can act on. The pull request is where
+          # the gate applies.
+          PROSE_ARGS: ${{ github.event_name != 'pull_request' && '--skip-commits' || '' }}
         run: |
           bash .gitlab/scripts/install-vale.sh .vale/bin .vale/styles
-          bash .gitlab/scripts/lint-prose.sh
+          bash .gitlab/scripts/lint-prose.sh $PROSE_ARGS
 
       - run: yarn lint:knip
 

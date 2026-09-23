@@ -3,13 +3,18 @@
 # its range, and the merge request description. All three are content someone
 # wrote for this repository, and the project voice applies to all of it.
 #
-# Usage: lint-prose.sh [--all] [<base-sha>]
+# Usage: lint-prose.sh [--all] [--skip-commits] [<base-sha>]
 #
 # Markdown: files added or modified in <base>..<head>; with --all, every tracked
 # markdown file. Without an argument the base is read from PROSE_BASE_SHA,
 # then CI_MERGE_REQUEST_DIFF_BASE_SHA, then CI_COMMIT_BEFORE_SHA. With none of
 # those the files and message of <head> alone are read. <head> is
 # PROSE_HEAD_SHA, else HEAD.
+#
+# Commits: skipped with --skip-commits. A push to an integration branch
+# carries commit messages that are already merged, so a finding there is
+# one nobody can act on without rewriting the branch. The merge request
+# that introduced them is where the gate applies.
 #
 # Description: MERGE_REQUEST_DESCRIPTION, then CI_MERGE_REQUEST_DESCRIPTION.
 # A merge request pipeline with neither is refused, as check-attribution.sh
@@ -32,9 +37,11 @@ set -uo pipefail
 
 all=0
 base=""
+skip_commits=0
 for arg in "$@"; do
   case "$arg" in
     --all) all=1 ;;
+    --skip-commits) skip_commits=1 ;;
     -h|--help) sed -n '2,28p' "$0"; exit 0 ;;
     *) base="$arg" ;;
   esac
@@ -109,7 +116,9 @@ findings=0
 inputs="$work/inputs"
 mkdir -p "$inputs/commits"
 
-if [ -n "$base" ]; then
+if [ "$skip_commits" -eq 1 ]; then
+  shas=""
+elif [ -n "$base" ]; then
   shas="$(git rev-list "${base}..${head}")"
 else
   shas="$(git rev-parse "$head")"
@@ -120,12 +129,24 @@ for sha in $shas; do
   git log -1 --format=%B "$sha" > "$inputs/commits/$(git rev-parse --short "$sha").md"
 done
 
+# A review bot appends its own summary to the description. Nobody wrote it and
+# nobody can keep it in the project voice, so the generated block goes before
+# the rest of the description is linted. An unterminated block is left alone,
+# so a stray marker cannot silently drop real prose.
+strip_generated() {
+  awk '
+    /<!-- end of auto-generated comment:/ { skip = 0; next }
+    /<!-- This is an auto-generated comment:/ { skip = 1 }
+    skip == 0 { print }
+  '
+}
+
 description_state="no description"
 if [ -n "${MERGE_REQUEST_DESCRIPTION+x}" ]; then
-  printf '%s\n' "$MERGE_REQUEST_DESCRIPTION" > "$inputs/merge-request.md"
+  printf '%s\n' "$MERGE_REQUEST_DESCRIPTION" | strip_generated > "$inputs/merge-request.md"
   description_state="the merge request description"
 elif [ -n "${CI_MERGE_REQUEST_DESCRIPTION+x}" ]; then
-  printf '%s\n' "$CI_MERGE_REQUEST_DESCRIPTION" > "$inputs/merge-request.md"
+  printf '%s\n' "$CI_MERGE_REQUEST_DESCRIPTION" | strip_generated > "$inputs/merge-request.md"
   description_state="the merge request description"
 elif [ -n "${CI_MERGE_REQUEST_IID:-}" ]; then
   echo "[ERROR] merge request pipeline, but the description is not available." >&2
