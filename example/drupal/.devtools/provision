@@ -33,11 +33,16 @@ $db_file = resolve_env_value('DB_FILE', '/tmp/druxt-auth-drupal-site.sqlite')[0]
 // anything being passed between them.
 $client_id = resolve_env_value('OAUTH_CLIENT_ID', '')[0];
 $callback = resolve_env_value('OAUTH_CALLBACK', 'http://localhost:3000/callback')[0];
+$password_client_id = resolve_env_value('OAUTH_PASSWORD_CLIENT_ID', '')[0];
+$password_secret = resolve_env_value('OAUTH_PASSWORD_SECRET', 'druxt-password-secret')[0];
 $account_name = resolve_env_value('ACCOUNT_NAME', 'druxttest')[0];
 $account_pass = resolve_env_value('ACCOUNT_PASS', 'druxttest-pass')[0];
 
 if ($client_id === '') {
   FAIL('No OAUTH_CLIENT_ID in the environment or example/.env. The frontend and the consumer must agree on it.');
+}
+if ($password_client_id === '') {
+  FAIL('No OAUTH_PASSWORD_CLIENT_ID in the environment or example/.env.');
 }
 
 // -----------------------------------------------------------------------------
@@ -94,7 +99,9 @@ drush('cache:rebuild');
 PASS('Content type applied.');
 
 TASK('Enabling druxt and simple_oauth.');
-drush('pm:enable druxt simple_oauth');
+// simple_oauth_password_grant is where Simple OAuth 6 keeps the password
+// grant, so the example's second Consumer has something to answer it.
+drush('pm:enable druxt simple_oauth simple_oauth_password_grant');
 drush('role:perm:add anonymous %s', 'access druxt resources');
 drush('config:set jsonapi.settings read_only 0');
 PASS('Modules enabled; JSON:API accepts writes.');
@@ -165,6 +172,29 @@ drush('php:eval %s', sprintf(
 ));
 PASS('Consumer created.');
 
+// The password grant wants the opposite client to the browser flow: that one
+// is public because a browser cannot hold a secret, this one is confidential,
+// so the example covers a Consumer that authenticates with one.
+TASK('Creating the confidential consumer for the password grant.');
+drush('php:eval %s', sprintf(
+  '\Drupal\consumers\Entity\Consumer::create([
+    "owner_id" => 1,
+    "uuid" => %s,
+    "client_id" => %s,
+    "label" => "DruxtAuth example (password)",
+    "confidential" => TRUE,
+    "secret" => %s,
+    "pkce" => FALSE,
+    "image_styles" => [],
+    "grant_types" => ["password", "refresh_token"],
+    "scopes" => ["druxt_authenticated"],
+  ])->save();',
+  var_export($password_client_id, TRUE),
+  var_export($password_client_id, TRUE),
+  var_export($password_secret, TRUE)
+));
+PASS('Confidential consumer created.');
+
 // User 1 bypasses every permission check, so an end-to-end run as the admin
 // would never see the consent step that fails for everybody else.
 TASK('Creating the %s account, which is not user 1.', $account_name);
@@ -186,6 +216,7 @@ echo '===============================' . PHP_EOL;
 echo PHP_EOL;
 echo 'Database  : ' . $db_file . PHP_EOL;
 echo 'Client ID : ' . $client_id . PHP_EOL;
+echo 'Password  : ' . $password_client_id . ' / ' . $password_secret . PHP_EOL;
 echo 'Account   : ' . $account_name . ' / ' . $account_pass . PHP_EOL;
 echo PHP_EOL;
 echo '> Next steps:' . PHP_EOL;

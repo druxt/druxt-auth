@@ -31,6 +31,9 @@ const CLIENT_ID = process.env.CLIENT_ID
 const USERNAME = process.env.USERNAME || 'druxttest'
 const PASSWORD = process.env.PASSWORD || 'druxttest-pass'
 const STRATEGY = process.env.STRATEGY || 'drupal-authorization_code'
+// The password grant runs against its own confidential consumer, because the
+// browser flow's has to be public. Unset, those checks are skipped.
+const PASSWORD_CLIENT_ID = process.env.PASSWORD_CLIENT_ID
 
 let chromium
 try {
@@ -304,6 +307,32 @@ try {
   console.error(`\nAborted: ${error.message}`)
   await browser.close()
   process.exit(1)
+}
+
+// The password grant, which Simple OAuth 6 keeps in a contrib module. It runs
+// through the module's own server route rather than the browser, so this
+// drives that route the way the example's form does.
+if (PASSWORD_CLIENT_ID) {
+  const granted = await context.request.post(
+    `${FRONTEND}/_auth/drupal-password/token`,
+    {
+      data: {
+        grant_type: 'password',
+        username: USERNAME,
+        password: PASSWORD,
+      },
+    }
+  )
+  const body = await granted.json().catch(() => ({}))
+  check(
+    'the password grant mints a token through the module route',
+    granted.status() === 200 && !!body.access_token,
+    `HTTP ${granted.status()}`
+  )
+  check(
+    'and a refresh token with it, so that session renews too',
+    !!body.refresh_token
+  )
 }
 
 await browser.close()

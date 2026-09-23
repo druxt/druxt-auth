@@ -358,6 +358,7 @@ test:e2e:
     # The last check is guarded on this. Unset, it skips and the run still
     # says it passed, one check lighter.
     CLIENT_ID: d428854d-7d89-4756-816f-3ab1ddf7dd36
+    PASSWORD_CLIENT_ID: 6f2a1c40-98e3-4a2b-9c71-5d0e8b4f3a19
   script:
     - section_start "module" "Building the module"
     - yarn install --frozen-lockfile

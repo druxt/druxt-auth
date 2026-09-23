@@ -36,6 +36,11 @@ export default {
       'druxt-auth',
       {
         clientId: process.env.OAUTH_CLIENT_ID,
+        // The password grant runs server side against its own confidential
+        // Consumer, so neither of these reaches the browser. The browser flow
+        // needs a public Consumer, and one cannot be both.
+        passwordClientId: process.env.OAUTH_PASSWORD_CLIENT_ID,
+        clientSecret: process.env.OAUTH_PASSWORD_SECRET,
       },
     ],
     'druxt',
