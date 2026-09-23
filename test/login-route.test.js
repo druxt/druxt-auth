@@ -15,6 +15,7 @@ const run = (routes, moduleOptions = {}, caseSensitive = false) => {
   mock = {
     addModule: jest.fn(),
     addTemplate: jest.fn(),
+    addPlugin: jest.fn(),
     extendRoutes: jest.fn((fn) => callbacks.push(fn)),
     nuxt: { hook: jest.fn() },
     options: {
@@ -115,6 +116,7 @@ describe('The login route', () => {
     mock = {
       addModule: jest.fn(),
       addTemplate: jest.fn(),
+      addPlugin: jest.fn(),
       extendRoutes: jest.fn((fn) => callbacks.push(fn)),
       nuxt: { hook: jest.fn() },
       options: {
