@@ -60,6 +60,28 @@ export function publishOrder(packages) {
   return ordered
 }
 
+/**
+ * The array `npm pack --json` reports, taken out of whatever else it printed.
+ *
+ * `npm pack` runs the `prepare` lifecycle, and npm 9 and later put that
+ * script's stdout ahead of the JSON. npm 8, which the pipeline still builds
+ * on, does not, so this reads correctly on both.
+ *
+ * @param {string} output - Everything npm wrote to stdout.
+ * @returns {object[]} The parsed report.
+ */
+export function parsePackJson(output) {
+  const start = output.indexOf('[')
+  if (start === -1) {
+    throw new Error(`npm pack --json reported no array:\n${output}`)
+  }
+  try {
+    return JSON.parse(output.slice(start))
+  } catch (error) {
+    throw new Error(`npm pack --json could not be read: ${error.message}`)
+  }
+}
+
 function main() {
   const [out, ...only] = process.argv.slice(2)
   if (!out) throw new Error('Pass an output directory.')
@@ -84,7 +106,7 @@ function main() {
       ['pack', '--json', '--pack-destination', destination],
       { cwd: dir, encoding: 'utf8' }
     )
-    const [{ filename }] = JSON.parse(output)
+    const [{ filename }] = parsePackJson(output)
     // npm 8 reports a scoped tarball as "@scope/name-1.0.0.tgz" and writes "scope-name-1.0.0.tgz".
     const file = filename.replace(/^@/, '').replace(/\//g, '-')
     if (!fs.existsSync(path.join(destination, file)))

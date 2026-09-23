@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { publishOrder } from '../pack.mjs'
+import { parsePackJson, publishOrder } from '../pack.mjs'
 
 const pkg = (name, deps = {}, extra = {}) => ({
   dir: `/nowhere/${name}`,
@@ -46,5 +46,23 @@ test('a dependency cycle is refused', () => {
   assert.throws(
     () => publishOrder([pkg('a', { b: '1.0.0' }), pkg('b', { a: '1.0.0' })]),
     /Dependency cycle: a -> b -> a/
+  )
+})
+
+test('the pack report is read past whatever the prepare script printed', () => {
+  // npm runs `prepare` during pack, and npm 9 and later put its stdout ahead
+  // of the JSON, so parsing the whole stream fails.
+  const noisy =
+    'Git hooks enabled from .githooks/\n[{"filename":"druxt-auth-0.5.0.tgz"}]'
+  assert.deepEqual(parsePackJson(noisy), [{ filename: 'druxt-auth-0.5.0.tgz' }])
+  assert.deepEqual(parsePackJson('[{"filename":"a.tgz"}]'), [
+    { filename: 'a.tgz' },
+  ])
+})
+
+test('a report with no array at all says so, with what npm actually wrote', () => {
+  assert.throws(
+    () => parsePackJson('{"error":{"code":"E404"}}'),
+    /reported no array/
   )
 })
