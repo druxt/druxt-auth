@@ -5,7 +5,13 @@ import DruxtAuthModule from '../src'
 let mock
 
 // The scheme is an absolute path, which differs per checkout.
-const portable = (auth) => JSON.parse(JSON.stringify(auth).replace(/"[^"]*\/templates\/drupal-scheme\.js"/g, '"<druxt-auth>/templates/drupal-scheme.js"'))
+const portable = (auth) =>
+  JSON.parse(
+    JSON.stringify(auth).replace(
+      /"[^"]*\/templates\/drupal-scheme\.js"/g,
+      '"<druxt-auth>/templates/drupal-scheme.js"'
+    )
+  )
 
 jest.mock('axios', () => ({
   post: jest.fn(() => ({
