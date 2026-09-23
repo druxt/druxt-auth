@@ -85,7 +85,7 @@ _Note:_ replace `[DRUPAL_CONSUMER_CLIENT_ID]` and `[DRUPAL_CONSUMER_SECRET]` wit
        is what DruxtAuth does unless the `scope` option is set_
      - Redirect URI: `[FRONTEND_URL]/callback` (e.g., `http://localhost:3000/callback`)
 
-   - **Password** grant:
+   - **Password** grant (deprecated, removed in 1.0.0):
      - New Secret: _provide a secure secret_
      - Is Confidential: _checked_
      - Redirect URI: `[FRONTEND_URL]/callback` (e.g., `http://localhost:3000/callback`)
@@ -99,151 +99,89 @@ _Note:_ replace `[DRUPAL_CONSUMER_CLIENT_ID]` and `[DRUPAL_CONSUMER_SECRET]` wit
 
 ## Usage
 
-The DruxtAuth module installs and configures the **nuxt/auth** module for your Druxt site.
+The module installs and configures **nuxt/auth**, and adds two strategies.
 
-It adds two auth strategies that can be used via the `$auth` plugin:
+### Authorization code
 
-- `drupal-authorization_code`
+```js
+this.$nuxt.$auth.loginWith('drupal-authorization_code')
+```
 
-  ```js
-  this.$nuxt.$auth.loginWith('drupal-authorization_code')
-  ```
+That sends the visitor to Drupal to sign in. To keep them on the site, pass
+credentials, which signs in through Drupal's JSON login first:
 
-  With credentials, it signs in through Drupal's JSON login first, so the
-  authorize step finds a session and returns without showing a Drupal page.
-  `logout()` ends that Drupal session too, and `resetPassword()` asks Drupal
-  to email a reset link:
+```js
+await this.$auth.loginWith('drupal-authorization_code', {
+  credentials: { name: '', pass: '' },
+})
+```
 
-  ```js
-  await this.$auth.loginWith('drupal-authorization_code', {
-    credentials: { name: '', pass: '' },
-  })
-  await this.$auth.strategy.resetPassword('editor@example.com')
-  ```
+That call sends the browser to the authorize step, so nothing after it runs on
+success. Resetting a password is its own action:
 
-  `resetPassword()` treats a value with an `@` as an address. A Drupal
-  username may contain `@`, so name the field for those accounts:
+```js
+await this.$auth.strategy.resetPassword('editor@example.com')
+```
 
-  ```js
-  await this.$auth.strategy.resetPassword('editor@example.com', 'name')
-  ```
+`resetPassword()` reads a value containing `@` as an address. Pass `'name'` as
+a second argument for a username that contains one.
 
-  _Note:_ The session cookie must reach the authorize request, which needs
-  the browser to see the login and the authorize step on one site:
+Credentials need Drupal on the same origin as the frontend, because the
+session cookie has to reach the authorize request:
 
-  | Setup                                       | Credentials                                                                                                                                                                                              |
-  | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-  | Nuxt server proxying Drupal, on any servers | Works, and `druxt: { proxy: { api: true } }` sets it up. The module proxies `/user/login`, `/user/logout`, `/user/password` and `/oauth/authorize`, and points the `authorization` endpoint at the site. |
-  | Subdomains of one domain, no proxy          | Point the endpoints at Drupal's absolute URLs, and allow credentials for the frontend's origin in Drupal's CORS.                                                                                         |
-  | Different domains, no proxy                 | Not supported: the session cookie would be a third-party cookie. Call `loginWith` without credentials, which redirects to Drupal's login page as before.                                                 |
+| Setup                    | Credentials                                                                                                     |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| Nuxt proxying Drupal     | Works. Set `druxt: { proxy: { api: true } }` and the module proxies the session paths for you.                  |
+| Subdomains of one domain | Point the endpoints at Drupal's absolute URLs, and allow credentials for the frontend in Drupal's CORS.         |
+| Different domains        | The session cookie would be third party, so call `loginWith` without credentials and let it redirect to Drupal. |
 
-  `/user/login` is proxied for POST alone, which is the verb Drupal's JSON
-  login answers on. A GET reaches the frontend, so a login page at that path
-  still renders.
+A Drupal session already open in the browser refuses these credentials, rather
+than signing the visitor in as whoever left it there. A session this module
+opened is ended and the sign in retried, so an abandoned authorisation does not
+lock anyone out. The error has `sessionInUse` set, so a form can say why.
 
-  The Consumer must approve automatically, or the authorize step shows
-  Drupal's consent page.
+Drupal core cannot end a session it did not issue a logout token for. Add a
+route to the backend that can, point `sessionLogout` at it, and that session is
+ended instead of refused. Writing the route is the site's job:
 
-  A Drupal session already open in the browser refuses these credentials,
-  rather than signing the visitor in as whoever left it there. A session this
-  module opened is ended and the sign in retried, so an abandoned
-  authorisation does not lock anyone out. Any other session is refused, and
-  the error has `sessionInUse` set so a form can say why.
+```js
+endpoints: {
+  // The route, and the verb it answers on.
+  sessionLogout: '/your/route',
+  sessionLogoutMethod: 'post',
+  // Where the CSRF token comes from. Core's own route, on every Drupal.
+  // Set this to null for a route that takes no token.
+  csrfToken: '/session/token'
+}
+```
 
-  Drupal core cannot end a session it did not issue a logout token for. Add a
-  route to the backend that can, point `sessionLogout` at it, and that session
-  is ended instead of refused. Writing the route is the site's job:
+The module reads a token from `csrfToken` and sends it as `X-CSRF-Token`. A
+route protected the way core protects its writes requires that header, and
+answers 403 without it.
 
-  ```js
-  auth: {
-    strategies: {
-      'drupal-authorization_code': {
-        endpoints: {
-          // The route, and the verb it answers on.
-          sessionLogout: '/your/route',
-          sessionLogoutMethod: 'post',
-          // Where the CSRF token comes from. Core's own route, on every
-          // Drupal. Set this to null for a route that takes no token.
-          csrfToken: '/session/token',
-        },
-      },
-    },
-  }
-  ```
+The Consumer must also approve automatically, or Drupal shows its consent
+page and the visitor leaves the site.
 
-  The module reads a token from `csrfToken` and sends it as `X-CSRF-Token`. A
-  route protected the way core protects its writes requires that header, and
-  answers 403 without it.
+### Password
 
-- `drupal-password`
+Simple OAuth 6 moved the password grant out of core. Install
+[simple_oauth_password_grant](https://www.drupal.org/project/simple_oauth_password_grant)
+and enable **Password** on the Consumer's grant types.
 
-  Simple OAuth 6 moved the password grant out of core. Install
-  [simple_oauth_password_grant](https://www.drupal.org/project/simple_oauth_password_grant)
-  on the backend and enable **Password** on the Consumer's grant types.
+```js
+this.$nuxt.$auth.loginWith('drupal-password', {
+  data: { username: '', password: '' },
+})
+```
 
-  ```js
-  this.$nuxt.$auth.loginWith('drupal-password', {
-    data: { username: '', password: '' },
-  })
-  ```
+The credentials reach Drupal through this module's own server route, so the
+site must run in SSR mode. Set `clientSecret` for a confidential Consumer. A
+public one needs none.
 
-  The username and password reach Drupal through this module's own server
-  route, so the site must run in SSR mode. Set `clientSecret` for a
-  confidential Consumer. A public one needs none, and the request leaves it
-  out rather than sending an empty value.
+A Consumer cannot be public and confidential at once, so a site running both
+this and the browser flow needs two. Point `passwordClientId` at the second.
 
-  A Consumer cannot be public and confidential at once, so a site running both
-  this and the browser flow needs two: set `passwordClientId` to the second.
-
-- See the **nuxt/auth** documentation form more details: https://auth.nuxtjs.org/api/auth
-
-## Sessions
-
-Sessions renew on their own, with no application code. Both strategies store
-a refresh token when the backend issues one, and **nuxt/auth** puts an
-interceptor on the shared `$axios` instance: a request made with an expired
-access token triggers a `refresh_token` grant first, then goes out with the
-new token. That covers DruxtClient requests too, because Druxt shares the
-same instance.
-
-| Situation                                   | What happens                                                                              |
-| ------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Access token expires while the page is open | The next request refreshes it, silently                                                   |
-| Page reloaded with an expired access token  | The tokens are in cookies, so the server render refreshes and the page hydrates logged in |
-| Refresh token expired or rejected           | The session resets and the request is aborted with `ExpiredAuthSessionError`              |
-| No refresh token stored                     | The request goes out with the expired token, and the backend refuses it                   |
-
-Both of the following apply:
-
-- The backend must issue refresh tokens: enable the **Refresh token** grant
-  on both the consumer and the scope.
-- **nuxt/auth** assumes a refresh token lives 30 days, because Simple OAuth's
-  refresh tokens are opaque and carry no expiry to read. A consumer with a
-  shorter lifetime (14 days is the usual default) rejects the refresh
-  in between, which ends the session mid-request. Match the two, or expect
-  a login prompt at the consumer's lifetime rather than at 30 days.
-- Setting `druxt.axios` gives the DruxtClient its own axios instance, which
-  the interceptor never sees. Attach the token yourself in that case.
-
-## Logging out
-
-`$auth.logout()` ends the frontend session and nothing else. Simple OAuth
-does not serve a revocation endpoint, so the tokens it issued stay valid until they
-expire, and the refresh token can still mint new access tokens for its whole
-lifetime. Spending them at logout needs a revocation route on the Drupal side
-([issue 2945273](https://www.drupal.org/project/simple_oauth/issues/2945273)
-carries a patch), called through the Nuxt proxy so it shares the frontend
-origin.
-
-It also leaves its own storage keys behind, in both cookies and localStorage,
-holding the string `"false"`. The keys are named for the strategy, so
-`auth._token.drupal-authorization_code`, not `auth._token.druxt`.
-
-`example/nuxt/pages/user/logout.vue` is a logout page that clears them and
-forces a full page load, which is also what empties the DruxtStore of content
-fetched while logged in.
-
-## Signing in
+## The login page
 
 The module adds a `/user/login` page with a sign in form:
 
@@ -251,44 +189,25 @@ The module adds a `/user/login` page with a sign in form:
 <DruxtAuthLogin />
 ```
 
-Put it wherever you like instead:
+Put it anywhere, and send the visitor on afterwards:
 
 ```vue
 <DruxtAuthLogin redirect="/account" />
 ```
 
-The form matches what the strategy can do. On the `drupal-authorization_code`
-strategy it asks for a username and password and signs in without sending the
-visitor to Drupal. On a strategy that cannot take credentials it renders a
-button that starts the redirect instead.
+The form matches the strategy. It asks for a username and password where the
+strategy takes them, and renders a button that starts the redirect where it
+does not.
 
-The credentials form needs two conditions. Drupal must be
-same origin with the frontend, because the session cookie has to reach
-`/oauth/authorize`, so use the API proxy above. The Consumer must also have
-**Automatically authorize this client** set, or Drupal shows its own consent
-page and the visitor leaves the site.
+Your own `pages/user/login.vue` wins, so nothing changes for a site that
+already has one. Set `login` to a path to move the page, or to `false` to
+leave it out.
 
-Style it with your own CSS. Give the inputs a font size of at least 16px at
-coarse pointers, or iOS zooms the page when one takes focus.
-
-The proxy and this page share the `/user/login` path and do not collide. The
-module proxies that path for POST alone, which is what Drupal's JSON login
-answers on, so a GET reaches this page.
-
-A component that replaces the form receives the username and password, since
-it renders the fields. Treat an override the way you would treat any code
-handling a password.
-
-### Replacing it
-
-Add your own `pages/user/login.vue` and the module leaves the route alone,
-so upgrading changes nothing for a site that already has a login page.
-
-To theme the form rather than replace the page, add a component named after
-the strategy, or `DruxtAuthLoginDefault` for all of them:
+To theme the form rather than replace the page, add a component named
+`DruxtAuthLoginDefault`, or one named for the strategy:
 
 ```vue
-<!-- components/DruxtAuthLoginDrupalAuthorizationCode.vue -->
+<!-- components/DruxtAuthLoginDefault.vue -->
 <template>
   <form @submit.prevent="submit">
     <p v-if="error">{{ error }}</p>
@@ -305,35 +224,47 @@ export default {
 </script>
 ```
 
-## Saving a user signs them out
+An override receives the username and password, so treat it as code handling
+a password. Give the inputs a font size of at least 16px, or iOS zooms the
+page when one takes focus.
 
-Drupal revokes a user's access tokens whenever that user is saved, so an
-editor who edits their own profile returns to a site that believes it is
-signed in and is refused every request. `simple_oauth_user_update()` calls
-`TokenExpiryTriggerHandler::handleUserUpdate()` with nothing gating it, and
-Simple OAuth 6.1.1 has no setting for it.
+## Sessions
 
-The module recovers from it, with no configuration. Only access tokens are
-revoked, so the refresh token is still in the browser, and one 401 buys one
-refresh and one replay of the request.
+Sessions renew on their own, with no application code, as long as the backend
+issues refresh tokens. Enable the **Refresh token** grant on both the
+consumer and the scope.
 
-A burst costs one refresh, not one each. Requests that fail at the same
-moment share the refresh in flight, and a request refused in the few seconds
-after a refresh succeeded is retried with the token that refresh produced.
-Both halves matter, because each refresh rotates the tokens and revokes what
-the one before it issued.
+| Situation                                            | What happens                                                                              |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Access token expires while the page is open          | The next request refreshes it, silently                                                   |
+| Page reloaded with an expired access token           | The tokens are in cookies, so the server render refreshes and the page hydrates logged in |
+| Drupal revokes the access token, as a user save does | The next request recovers the session with the refresh token, silently                    |
+| Refresh token expired or rejected                    | The session resets and the request is aborted with `ExpiredAuthSessionError`              |
+| No refresh token stored                              | The request goes out with the expired token, and the backend refuses it                   |
 
-Where the refresh also fails, the original answer reaches the caller, since
-that is a real sign out. Where a backend revokes continuously, the site stops
-trying after three refreshes in thirty seconds rather than retrying for ever.
+Watch for these:
 
-Recovery is one refresh per grace window, so revocations arriving faster than
-that are not recovered and those requests are refused. Measured with seven
-saves 120 milliseconds apart. It is transient rather than a sign out: the
-session stays, and the next request after the window recovers on one refresh.
+- **nuxt/auth** assumes a refresh token lives 30 days, because Simple OAuth's
+  are opaque and carry no expiry to read. A consumer with a shorter lifetime
+  (14 days is the usual default) rejects the refresh in between. Match the
+  two, or expect a login prompt at the consumer's lifetime.
+- Setting `druxt.axios` gives the DruxtClient its own axios instance, which
+  the interceptor never sees. Attach the token yourself in that case.
 
-Upstream this is [drupal.org issue 2946882](https://www.drupal.org/i/2946882),
-open since 2018, with no merge request targeting 6.1.x.
+## Logging out
+
+`$auth.logout()` ends the frontend session and nothing else. Simple OAuth
+does not serve a revocation endpoint, so its tokens stay valid until they
+expire.
+Spending them needs a revocation route on the Drupal side, called through the
+proxy ([issue 2945273](https://www.drupal.org/project/simple_oauth/issues/2945273)).
+
+It also leaves its own storage keys behind, holding the string `"false"`,
+named for the strategy rather than for druxt:
+`auth._token.drupal-authorization_code`.
+
+`example/nuxt/pages/user/logout.vue` clears them and forces a full page load,
+which is what empties the DruxtStore of content fetched while logged in.
 
 ## Options
 
