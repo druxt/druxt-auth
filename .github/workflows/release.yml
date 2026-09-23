@@ -1,0 +1,156 @@
+---
+name: Release
+
+# Publishes the package to npm.
+#
+# dev: a push to develop that changes a changeset publishes a snapshot under
+# the `dev` dist-tag. `latest` never moves, nothing is committed and no git
+# tag is made. Install it with `druxt-auth@dev`.
+#
+# The trigger is scoped to the changeset files themselves, not every push: a
+# changeset is how this repository marks a package-affecting change, so a
+# merge that only touches docs, CI or the changesets tooling's own config
+# never cuts a snapshot on its own. It still publishes every changeset
+# pending at the time, including ones left over from earlier merges, since
+# the step that counts them reads the whole directory, not just this push's
+# diff.
+#
+# Building and publishing are separate jobs. The build job runs repository
+# code, install scripts included, so it holds no publishing rights: it ends
+# by packing a tarball. The publish job holds the OIDC permission and runs
+# nothing from the repository: it downloads that tarball and hands it to npm.
+#
+# Publishing authenticates through npm trusted publishing (OIDC), so there is
+# no token. It stays off until the repository variable NPM_PUBLISH is `true`,
+# which is set once the package names this file as its trusted publisher on
+# npmjs.com. Until then the packed tarball is the dry run.
+#
+# Stable releases are deliberately absent. This file only cuts snapshots.
+on:
+  push:
+    branches: [develop]
+    paths:
+      - '.changeset/*.md'
+      - '!.changeset/README.md'
+  pull_request:
+    branches: [develop, main, 'feature/**']
+    paths:
+      - .github/workflows/release.yml
+      - .changeset/config.json
+      - scripts/release/**
+      - package.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never cancel a publish half way through.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Runs on pull requests too, as a rehearsal. No id-token here: a lifecycle
+  # script in a pull request must not be able to reach npm.
+  snapshot:
+    if: github.repository == 'druxt/druxt-auth'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      count: ${{ steps.pending.outputs.count }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      # corepack reads the packageManager field, so the manager the lockfile
+      # was written by is the one that installs it.
+      - run: corepack enable && corepack prepare --activate
+
+      - run: yarn install --frozen-lockfile
+
+      - name: Test the release scripts
+        run: yarn release:check:test
+
+      - name: Count pending changesets
+        id: pending
+        run: |
+          count=$(find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md' | wc -l)
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Pending changesets: $count" >> "$GITHUB_STEP_SUMMARY"
+
+      # A snapshot cannot be cut in pre mode. The checkout is thrown away, so
+      # dropping the marker here changes nothing on the branch.
+      - name: Version the snapshot
+        if: steps.pending.outputs.count != '0'
+        run: |
+          rm -f .changeset/pre.json
+          yarn changeset version --snapshot dev
+
+      - name: Build
+        if: steps.pending.outputs.count != '0'
+        run: yarn build
+
+      - name: Check the release set
+        if: steps.pending.outputs.count != '0'
+        run: yarn release:check
+
+      - name: Pack the tarball
+        if: steps.pending.outputs.count != '0'
+        run: |
+          node scripts/release/pack.mjs dev-packages
+          {
+            echo "| Package | Version |"
+            echo "| --- | --- |"
+            node -p "require('./dev-packages/manifest.json').map((p) => '| ' + p.name + ' | ' + p.version + ' |').join('\n')"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: steps.pending.outputs.count != '0'
+        with:
+          name: dev-packages
+          path: dev-packages
+          retention-days: 7
+          if-no-files-found: error
+
+  # No checkout and no install: nothing from the repository runs with the
+  # OIDC permission. Trusted publishing needs npm 11.5.1 or later, which needs
+  # a newer Node than the one the package builds on.
+  dev:
+    needs: snapshot
+    if: >-
+      github.event_name != 'pull_request' &&
+      github.ref == 'refs/heads/develop' &&
+      vars.NPM_PUBLISH == 'true' &&
+      needs.snapshot.outputs.count != '0'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # An exact version, and no install scripts: this job can publish.
+      - name: Update npm
+        run: npm install --global --ignore-scripts npm@11.19.1
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dev-packages
+          path: dev-packages
+
+      # The leading ./ matters: npm reads a bare "dir/file.tgz" as the GitHub
+      # shorthand "user/repo" and tries to clone it.
+      - name: Publish under the dev tag
+        run: |
+          for file in $(node -p "require('./dev-packages/manifest.json').map((p) => p.file).join(' ')"); do
+            npm publish "./dev-packages/$file" --tag dev --access public
+          done
+          echo "Published under the dev tag." >> "$GITHUB_STEP_SUMMARY"
