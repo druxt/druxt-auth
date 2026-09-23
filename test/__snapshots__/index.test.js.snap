@@ -4,6 +4,7 @@ exports[`DruxtAuth Nuxt module API Proxy - Array 1`] = `
 Object {
   "redirect": Object {
     "callback": "/callback",
+    "login": "/user/login",
     "logout": "/",
   },
   "strategies": Object {
@@ -63,6 +64,7 @@ exports[`DruxtAuth Nuxt module API Proxy - Object 1`] = `
 Object {
   "redirect": Object {
     "callback": "/callback",
+    "login": "/user/login",
     "logout": "/",
   },
   "strategies": Object {
@@ -122,6 +124,7 @@ exports[`DruxtAuth Nuxt module API Proxy - default 1`] = `
 Object {
   "redirect": Object {
     "callback": "/callback",
+    "login": "/user/login",
     "logout": "/",
   },
   "strategies": Object {
@@ -181,6 +184,7 @@ exports[`DruxtAuth Nuxt module Defaults 1`] = `
 Object {
   "redirect": Object {
     "callback": "/callback",
+    "login": "/user/login",
     "logout": "/",
   },
   "strategies": Object {

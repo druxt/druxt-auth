@@ -8,6 +8,7 @@ drush
 druxt
 druxttest
 knip
+langcode
 lndo
 markdownlint
 networkidle
