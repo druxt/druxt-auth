@@ -142,6 +142,67 @@ describe('DrupalScheme', () => {
     ).rejects.toMatchObject({ sessionInUse: true })
   })
 
+  test('the session request carries the CSRF header core protection wants', async () => {
+    // Without it a route protected the way core protects its writes answers
+    // 403, the hook reports failure, and nothing names CSRF. A site chasing
+    // that would remove the protection, leaving an endpoint that ends any
+    // visitor's session.
+    $auth.request
+      .mockRejectedValueOnce(
+        httpError(403, 'This route can only be accessed by anonymous users.')
+      )
+      .mockResolvedValueOnce({ data: 'csrf-abc123\n' })
+      .mockResolvedValueOnce({ data: {} })
+      .mockResolvedValueOnce({ data: { logout_token: 'logout-456' } })
+
+    await scheme({ endpoints: { sessionLogout: '/site/end-session' } }).login({
+      credentials: { name: 'editor', pass: 'secret' },
+    })
+
+    const [token, end] = $auth.request.mock.calls.slice(1).map((c) => c[0])
+    expect(token).toMatchObject({ method: 'get', url: '/session/token' })
+    expect(end.headers).toStrictEqual({ 'X-CSRF-Token': 'csrf-abc123' })
+    expect(end.method).toBe('post')
+  })
+
+  test('a site whose route needs no header can turn the fetch off', async () => {
+    $auth.request
+      .mockRejectedValueOnce(
+        httpError(403, 'This route can only be accessed by anonymous users.')
+      )
+      .mockResolvedValueOnce({ data: {} })
+      .mockResolvedValueOnce({ data: { logout_token: 'logout-456' } })
+
+    await scheme({
+      endpoints: { sessionLogout: '/site/end-session', csrfToken: null },
+    }).login({ credentials: { name: 'editor', pass: 'secret' } })
+
+    expect($auth.request.mock.calls.map((c) => c[0].url)).toEqual([
+      '/user/login?_format=json',
+      '/site/end-session',
+      '/user/login?_format=json',
+    ])
+  })
+
+  test('a site whose route wants another verb can name it', async () => {
+    $auth.request
+      .mockRejectedValueOnce(
+        httpError(403, 'This route can only be accessed by anonymous users.')
+      )
+      .mockResolvedValueOnce({ data: 'csrf-abc123' })
+      .mockResolvedValueOnce({ data: {} })
+      .mockResolvedValueOnce({ data: { logout_token: 'logout-456' } })
+
+    await scheme({
+      endpoints: {
+        sessionLogout: '/site/end-session',
+        sessionLogoutMethod: 'delete',
+      },
+    }).login({ credentials: { name: 'editor', pass: 'secret' } })
+
+    expect($auth.request.mock.calls[2][0].method).toBe('delete')
+  })
+
   test('a site that can end a foreign session does, rather than refusing', async () => {
     // Core cannot do this, so the endpoint is unset by default and the module
     // ships nothing to serve it. A site that adds a route points here.
@@ -149,6 +210,7 @@ describe('DrupalScheme', () => {
       .mockRejectedValueOnce(
         httpError(403, 'This route can only be accessed by anonymous users.')
       )
+      .mockResolvedValueOnce({ data: 'csrf-abc123' })
       .mockResolvedValueOnce({ data: {} })
       .mockResolvedValueOnce({ data: { logout_token: 'logout-456' } })
 
@@ -158,6 +220,7 @@ describe('DrupalScheme', () => {
     ).toStrictEqual({ oauth2: 'login', options: {} })
     expect($auth.request.mock.calls.map((c) => c[0].url)).toEqual([
       '/user/login?_format=json',
+      '/session/token',
       '/site/end-session',
       '/user/login?_format=json',
     ])

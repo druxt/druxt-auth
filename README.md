@@ -157,11 +157,22 @@ It adds two auth strategies that can be used via the `$auth` plugin:
   auth: {
     strategies: {
       'drupal-authorization_code': {
-        endpoints: { sessionLogout: '/your/route' },
+        endpoints: {
+          // The route, and the verb it answers on.
+          sessionLogout: '/your/route',
+          sessionLogoutMethod: 'post',
+          // Where the CSRF token comes from. Core's own route, on every
+          // Drupal. Set this to null for a route that takes no token.
+          csrfToken: '/session/token',
+        },
       },
     },
   }
   ```
+
+  The module reads a token from `csrfToken` and sends it as `X-CSRF-Token`. A
+  route protected the way core protects its writes requires that header, and
+  answers 403 without it.
 
 - `drupal-password`
 

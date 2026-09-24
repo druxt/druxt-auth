@@ -26,6 +26,13 @@ const DEFAULTS = {
     // Unset: Drupal core has no route that ends a session it did not issue a
     // logout token for. A site that adds one points this at it.
     sessionLogout: null,
+    // The verb that route answers on. POST because more routes accept it.
+    sessionLogoutMethod: 'post',
+    // Core's own, on every Drupal. A route protected the way core protects
+    // its writes needs this header, and without it answers 403 with nothing
+    // naming CSRF, which invites a site to remove the protection instead.
+    // A route that needs no header can set this to null.
+    csrfToken: '/session/token',
   },
 }
 
@@ -166,14 +173,28 @@ export default class DrupalScheme extends Oauth2Scheme {
    * @returns {boolean} Whether the session is now ended.
    */
   async endForeignSession () {
-    const url = this.options.endpoints.sessionLogout
-    if (!url) return false
+    const { sessionLogout, sessionLogoutMethod, csrfToken } =
+      this.options.endpoints
+    if (!sessionLogout) return false
 
     try {
+      const headers = {}
+
+      if (csrfToken) {
+        const { data } = await this.$auth.request({
+          method: 'get',
+          baseURL: '',
+          url: csrfToken,
+          withCredentials: true,
+        })
+        headers['X-CSRF-Token'] = String(data).trim()
+      }
+
       await this.$auth.request({
-        method: 'post',
+        method: sessionLogoutMethod || 'post',
         baseURL: '',
-        url,
+        url: sessionLogout,
+        headers,
         withCredentials: true,
       })
       return true
