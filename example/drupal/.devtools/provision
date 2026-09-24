@@ -125,25 +125,42 @@ if (!is_file($keys_dir . '/public.key') || !is_file($keys_dir . '/private.key'))
 }
 PASS('Keys generated.');
 
-// Simple OAuth 6 refuses an authorize request that names no scope unless the
-// consumer carries a default one, so the scope has to exist before it.
-// `roles` on the consumer is gone; a Role-granularity scope replaces it.
-TASK('Creating the authenticated scope.');
-drush('php:eval %s', '
-  \Drupal\simple_oauth\Entity\Oauth2Scope::create([
-    "id" => "druxt_authenticated",
-    "name" => "druxt:authenticated",
-    "description" => "Everything the signed-in account may do.",
-    "grant_types" => [
-      "authorization_code" => ["status" => TRUE],
-      "refresh_token" => ["status" => TRUE],
-    ],
-    "umbrella" => FALSE,
-    "granularity_id" => "role",
-    "granularity_configuration" => ["role" => "authenticated"],
-  ])->save();
-');
-PASS('Scope created.');
+// One scope per role, with the scope id equal to the role id, and the
+// consumer listing every role its users may hold. A scope is a ceiling:
+// Oauth2AccessPolicy intersects the scopes' permissions with the account's,
+// so naming too few silently removes permissions the account has, and the
+// write fails as a 403 with nothing scope-shaped to point at.
+//
+// Simple OAuth 6 also refuses an authorize request that names no scope
+// unless the consumer carries a default, so these exist before it does.
+// Before the scopes, because a scope names a role that has to exist.
+TASK('Creating the druxt_oauth role.');
+drush('role:create druxt_oauth %s', 'Druxt OAuth');
+drush('role:perm:add druxt_oauth %s', 'grant simple_oauth codes');
+PASS('Role created.');
+
+TASK('Creating a scope per role.');
+foreach (['authenticated', 'druxt_oauth'] as $role) {
+  drush('php:eval %s', sprintf(
+    '\Drupal\simple_oauth\Entity\Oauth2Scope::create([
+      "id" => %s,
+      "name" => %s,
+      "description" => "Everything the %s role may do.",
+      "grant_types" => [
+        "authorization_code" => ["status" => TRUE],
+        "refresh_token" => ["status" => TRUE],
+      ],
+      "umbrella" => FALSE,
+      "granularity_id" => "role",
+      "granularity_configuration" => ["role" => %s],
+    ])->save();',
+    var_export($role, TRUE),
+    var_export($role, TRUE),
+    $role,
+    var_export($role, TRUE)
+  ));
+}
+PASS('Scopes created.');
 
 // Public plus PKCE: a browser cannot hold a secret, and the authorization
 // code grant is the one Simple OAuth 6 keeps.
@@ -164,7 +181,7 @@ drush('php:eval %s', sprintf(
     // empty, so a consumer without it is refused whatever else is right.
     // The roles field it replaced is gone.
     "grant_types" => ["authorization_code", "refresh_token"],
-    "authorization_code_scopes" => ["druxt_authenticated"],
+    "authorization_code_scopes" => ["authenticated", "druxt_oauth"],
   ])->save();',
   var_export($client_id, TRUE),
   var_export($client_id, TRUE),
@@ -187,7 +204,7 @@ drush('php:eval %s', sprintf(
     "pkce" => FALSE,
     "image_styles" => [],
     "grant_types" => ["password", "refresh_token"],
-    "scopes" => ["druxt_authenticated"],
+    "scopes" => ["authenticated", "druxt_oauth"],
   ])->save();',
   var_export($password_client_id, TRUE),
   var_export($password_client_id, TRUE),
@@ -198,8 +215,6 @@ PASS('Confidential consumer created.');
 // User 1 bypasses every permission check, so an end-to-end run as the admin
 // would never see the consent step that fails for everybody else.
 TASK('Creating the %s account, which is not user 1.', $account_name);
-drush('role:create druxt_oauth %s', 'Druxt OAuth');
-drush('role:perm:add druxt_oauth %s', 'grant simple_oauth codes');
 drush('user:create %s --password=%s', [$account_name, $account_pass]);
 drush('user:role:add druxt_oauth %s', $account_name);
 PASS('Account created and granted consent.');
