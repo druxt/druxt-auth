@@ -6,9 +6,13 @@
 
 # Create a Druxt consumer.
 drush php-eval '
+$client_id = getenv("OAUTH_CLIENT_ID") ?: \Drupal::service("uuid")->generate();
 $consumer = \Drupal\consumers\Entity\Consumer::create([
   "owner_id"     => 1,
-  "uuid"         => getenv("OAUTH_CLIENT_ID") ?: \Drupal::service("uuid")->generate(),
+  "uuid"         => $client_id,
+  // Simple OAuth loads the client by this field from 5.2.1 (issue #3167287),
+  // not by the uuid. Without it every grant answers invalid_client.
+  "client_id"    => $client_id,
   "label"        => "Druxt",
   "description"  => "DruxtJS is a bridge between frameworks, Drupal in the back, Nuxt in the front.\n\nhttps://druxtjs.org",
   "confidential" => FALSE,

@@ -12,13 +12,14 @@ Object {
       "codeChallengeMethod": "S256",
       "endpoints": Object {
         "authorization": "https://demo-api.druxtjs.org/oauth/authorize",
+        "authorizationBackend": "https://demo-api.druxtjs.org/oauth/authorize",
+        "authorizationSameOrigin": "/oauth/authorize",
         "token": "https://demo-api.druxtjs.org/oauth/token",
         "userInfo": "/oauth/userinfo",
       },
       "grantType": "authorization_code",
       "responseType": "code",
-      "scheme": "oauth2",
-      "scope": undefined,
+      "scheme": "<druxt-auth>/templates/drupal-scheme.js",
     },
     "drupal-password": Object {
       "endpoints": Object {
@@ -70,13 +71,14 @@ Object {
       "codeChallengeMethod": "S256",
       "endpoints": Object {
         "authorization": "https://demo-api.druxtjs.org/oauth/authorize",
+        "authorizationBackend": "https://demo-api.druxtjs.org/oauth/authorize",
+        "authorizationSameOrigin": "/oauth/authorize",
         "token": "https://demo-api.druxtjs.org/oauth/token",
         "userInfo": "/oauth/userinfo",
       },
       "grantType": "authorization_code",
       "responseType": "code",
-      "scheme": "oauth2",
-      "scope": undefined,
+      "scheme": "<druxt-auth>/templates/drupal-scheme.js",
     },
     "drupal-password": Object {
       "endpoints": Object {
@@ -128,13 +130,14 @@ Object {
       "codeChallengeMethod": "S256",
       "endpoints": Object {
         "authorization": "https://demo-api.druxtjs.org/oauth/authorize",
+        "authorizationBackend": "https://demo-api.druxtjs.org/oauth/authorize",
+        "authorizationSameOrigin": "/oauth/authorize",
         "token": "https://demo-api.druxtjs.org/oauth/token",
         "userInfo": "/oauth/userinfo",
       },
       "grantType": "authorization_code",
       "responseType": "code",
-      "scheme": "oauth2",
-      "scope": undefined,
+      "scheme": "<druxt-auth>/templates/drupal-scheme.js",
     },
     "drupal-password": Object {
       "endpoints": Object {
@@ -186,13 +189,13 @@ Object {
       "codeChallengeMethod": "S256",
       "endpoints": Object {
         "authorization": "https://demo-api.druxtjs.org/oauth/authorize",
+        "authorizationBackend": "https://demo-api.druxtjs.org/oauth/authorize",
         "token": "https://demo-api.druxtjs.org/oauth/token",
         "userInfo": "https://demo-api.druxtjs.org/oauth/userinfo",
       },
       "grantType": "authorization_code",
       "responseType": "code",
-      "scheme": "oauth2",
-      "scope": undefined,
+      "scheme": "<druxt-auth>/templates/drupal-scheme.js",
     },
     "drupal-password": Object {
       "endpoints": Object {

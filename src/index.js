@@ -1,3 +1,4 @@
+import { resolve } from 'path'
 import axios from 'axios'
 import bodyParser from 'body-parser'
 
@@ -24,23 +25,34 @@ const NuxtModule = function (moduleOptions = {}) {
   // Nuxt proxy integration.
   const proxy = (options.proxy || {}).api
   if (proxy) {
-    if (this.options.proxy) {
-      if (Array.isArray(this.options.proxy)) {
-        this.options.proxy = [
-          ...this.options.proxy,
-          baseUrl + '/oauth/userinfo',
-        ]
-      } else {
-        this.options.proxy = {
-          ...this.options.proxy,
-          '/oauth/userinfo': baseUrl,
-        }
-      }
-    } else {
-      this.options.proxy = {
-        '/oauth/userinfo': baseUrl,
-      }
-    }
+    // The array form throughout, because one entry below is a function and an
+    // object cannot key on one. @nuxtjs/proxy reads both and treats a bare
+    // string, a [context, target] pair and a [context, options] pair alike.
+    const existing = !this.options.proxy
+      ? []
+      : Array.isArray(this.options.proxy)
+        ? this.options.proxy
+        : Object.entries(this.options.proxy)
+
+    this.options.proxy = [
+      ...existing,
+      ['/oauth/userinfo', { target: baseUrl }],
+
+      // Signing in with credentials puts a Drupal session cookie in the
+      // browser, and it only reaches the authorize request when Drupal
+      // answers on this origin. These four are what that takes.
+      //
+      // Proxied for POST alone. Drupal's JSON routes for all three are POST
+      // (user.login.http, user.logout.http, user.pass.http), and a GET has to
+      // reach whatever page sits at that path: the login page this module
+      // adds, or a site's own logout and password pages. Proxying the GET
+      // sends the visitor to Drupal's form and the page never renders.
+      ...['/user/login', '/user/logout', '/user/password'].map((path) => [
+        (candidate, req) => candidate === path && req.method === 'POST',
+        { target: baseUrl },
+      ]),
+      ['/oauth/authorize', { target: baseUrl }],
+    ]
   }
 
   // @nuxtjs/auth-next module settings.
@@ -54,11 +66,21 @@ const NuxtModule = function (moduleOptions = {}) {
     },
 
     strategies: {
-      // OAuth 2 Authorization code grant with PKCE.
+      // OAuth 2 Authorization code grant with PKCE. The scheme is oauth2's,
+      // plus sign-in with credentials through Drupal's JSON login.
       'drupal-authorization_code': {
-        scheme: 'oauth2',
+        scheme: resolve(__dirname, '../templates/drupal-scheme.js'),
         endpoints: {
+          // The browser-facing URL, and the default. Without credentials the
+          // visitor signs in on Drupal's own page, which lives on Drupal's
+          // origin, so the authorize request has to go there.
           authorization: baseUrl + '/oauth/authorize',
+          authorizationBackend: baseUrl + '/oauth/authorize',
+          // The same-origin path, when the proxy gives us one. Signing in
+          // with credentials sets the Drupal session cookie on this origin,
+          // and a cookie does not travel to the backend's, so that flow uses
+          // this instead. The scheme picks between them per login.
+          ...(proxy ? { authorizationSameOrigin: '/oauth/authorize' } : {}),
           token: baseUrl + '/oauth/token',
           userInfo: (!proxy ? baseUrl : '') + '/oauth/userinfo',
         },

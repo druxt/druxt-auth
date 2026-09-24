@@ -108,6 +108,72 @@ It adds two auth strategies that can be used via the `$auth` plugin:
   this.$nuxt.$auth.loginWith('drupal-authorization_code')
   ```
 
+  With credentials, it signs in through Drupal's JSON login first, so the
+  authorize step finds a session and returns without showing a Drupal page.
+  `logout()` ends that Drupal session too, and `resetPassword()` asks Drupal
+  to email a reset link:
+
+  ```js
+  await this.$auth.loginWith('drupal-authorization_code', {
+    credentials: { name: '', pass: '' },
+  })
+  await this.$auth.strategy.resetPassword('editor@example.com')
+  ```
+
+  `resetPassword()` treats a value with an `@` as an address. A Drupal
+  username may contain `@`, so name the field for those accounts:
+
+  ```js
+  await this.$auth.strategy.resetPassword('editor@example.com', 'name')
+  ```
+
+  _Note:_ The session cookie must reach the authorize request, which needs
+  the browser to see the login and the authorize step on one site:
+
+  | Setup                                       | Credentials                                                                                                                                                                                              |
+  | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | Nuxt server proxying Drupal, on any servers | Works, and `druxt: { proxy: { api: true } }` sets it up. The module proxies `/user/login`, `/user/logout`, `/user/password` and `/oauth/authorize`, and points the `authorization` endpoint at the site. |
+  | Subdomains of one domain, no proxy          | Point the endpoints at Drupal's absolute URLs, and allow credentials for the frontend's origin in Drupal's CORS.                                                                                         |
+  | Different domains, no proxy                 | Not supported: the session cookie would be a third-party cookie. Call `loginWith` without credentials, which redirects to Drupal's login page as before.                                                 |
+
+  `/user/login` is proxied for POST alone, which is the verb Drupal's JSON
+  login answers on. A GET reaches the frontend, so a login page at that path
+  still renders.
+
+  The Consumer must approve automatically, or the authorize step shows
+  Drupal's consent page.
+
+  A Drupal session already open in the browser refuses these credentials,
+  rather than signing the visitor in as whoever left it there. A session this
+  module opened is ended and the sign in retried, so an abandoned
+  authorisation does not lock anyone out. Any other session is refused, and
+  the error has `sessionInUse` set so a form can say why.
+
+  Drupal core cannot end a session it did not issue a logout token for. Add a
+  route to the backend that can, point `sessionLogout` at it, and that session
+  is ended instead of refused. Writing the route is the site's job:
+
+  ```js
+  auth: {
+    strategies: {
+      'drupal-authorization_code': {
+        endpoints: {
+          // The route, and the verb it answers on.
+          sessionLogout: '/your/route',
+          sessionLogoutMethod: 'post',
+          // Where the CSRF token comes from. Core's own route, on every
+          // Drupal. Set this to null for a route that takes no token.
+          csrfToken: '/session/token',
+        },
+      },
+    },
+  }
+  ```
+
+  The module reads a token from `csrfToken` and sends it as `X-CSRF-Token`. A
+  route protected the way core protects its writes requires that header, and
+  answers 403 without it.
+
 - `drupal-password`
 
   ```js

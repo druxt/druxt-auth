@@ -4,6 +4,15 @@ import DruxtAuthModule from '../src'
 
 let mock
 
+// The scheme is an absolute path, which differs per checkout.
+const portable = (auth) =>
+  JSON.parse(
+    JSON.stringify(auth).replace(
+      /"[^"]*\/templates\/drupal-scheme\.js"/g,
+      '"<druxt-auth>/templates/drupal-scheme.js"'
+    )
+  )
+
 jest.mock('axios', () => ({
   post: jest.fn(() => ({
     data: true,
@@ -48,7 +57,7 @@ describe('DruxtAuth Nuxt module', () => {
     })
 
     // Expect the @nuxtjs/auth-next module to be correctly configured.
-    expect(mock.options.auth).toMatchSnapshot()
+    expect(portable(mock.options.auth)).toMatchSnapshot()
 
     // Password grant middleware.
     expect(mock.options.serverMiddleware[0].path).toBe(
@@ -95,7 +104,7 @@ describe('DruxtAuth Nuxt module', () => {
     })
 
     // Expect the @nuxtjs/auth-next module to be correctly configured.
-    expect(mock.options.auth).toMatchSnapshot()
+    expect(portable(mock.options.auth)).toMatchSnapshot()
   })
 
   test('API Proxy - Object', async () => {
@@ -110,7 +119,7 @@ describe('DruxtAuth Nuxt module', () => {
     })
 
     // Expect the @nuxtjs/auth-next module to be correctly configured.
-    expect(mock.options.auth).toMatchSnapshot()
+    expect(portable(mock.options.auth)).toMatchSnapshot()
   })
 
   test('API Proxy - Array', async () => {
@@ -123,6 +132,6 @@ describe('DruxtAuth Nuxt module', () => {
     })
 
     // Expect the @nuxtjs/auth-next module to be correctly configured.
-    expect(mock.options.auth).toMatchSnapshot()
+    expect(portable(mock.options.auth)).toMatchSnapshot()
   })
 })

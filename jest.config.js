@@ -17,6 +17,9 @@ module.exports = {
       lines: 94,
     },
   },
+  moduleNameMapper: {
+    '^~auth/runtime$': '<rootDir>/test/__mocks__/auth-runtime.js',
+  },
   moduleFileExtensions: ['js', 'json', 'vue'],
   modulePathIgnorePatterns: ['/example/'],
   testEnvironment: 'jsdom',
