@@ -53,20 +53,16 @@ export default class DrupalPasswordScheme extends withDrupalSession(
    * the strategy asks for one.
    *
    * The session comes first, so wrong credentials and a session that belongs
-   * to someone else are both refused before Drupal is asked for a token. A
-   * grant refused after the session opened ends it again. Either way a
-   * refused sign-in leaves nothing behind.
+   * to someone else are both refused before Drupal is asked for a token.
+   * `openSession` ends a stale session this scheme left behind, awaited, so a
+   * new sign-in never races that teardown. A grant refused after the session
+   * opened ends it again. Either way a refused sign-in leaves nothing behind.
    *
    * @param {object} endpoint - The request, with `data.username` and
    *   `data.password`, as `loginWith` passes it.
    */
   async login (endpoint = {}, options) {
     if (!this.options.session) return super.login(endpoint, options)
-
-    // The refresh scheme resets before it requests. Done here instead, ahead
-    // of the session opening, so the reset ends a session left from before
-    // and never the one about to be opened for this sign-in.
-    if ((options || {}).reset !== false) this.reset({ resetInterceptor: false })
 
     const { username, password } = (endpoint || {}).data || {}
     // The grant names the fields `username` and `password`; Drupal's JSON

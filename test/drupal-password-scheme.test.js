@@ -145,13 +145,13 @@ describe('DrupalPasswordScheme', () => {
     expect(grant).not.toHaveBeenCalled()
   })
 
-  test('a session the reset could not end is found again and ended before the grant', async () => {
-    // Reset runs first and ends a session left behind. When that request
-    // fails, the token is kept, so Drupal answers the sign-in with 403 and
-    // openSession ends the session with the same token before retrying.
+  test('a stale session still valid is ended by openSession before the new one', async () => {
+    // A previous sign-in left a session and its token. Drupal answers the new
+    // sign-in with 403, openSession ends the old session with the kept token,
+    // then signs in, and the new token replaces the old. All awaited, in one
+    // sequence, so nothing races the token it stores.
     storage['drupal-password.logout_token'] = 'logout-old'
     $auth.request
-      .mockRejectedValueOnce(httpError(500, 'Service unavailable'))
       .mockRejectedValueOnce(
         httpError(403, 'This route can only be accessed by anonymous users.')
       )
@@ -161,13 +161,51 @@ describe('DrupalPasswordScheme', () => {
     await scheme({ session: true }).login(credentials)
 
     expect($auth.request.mock.calls.map((c) => c[0].url)).toEqual([
-      '/user/logout?_format=json',
       '/user/login?_format=json',
       '/user/logout?_format=json',
       '/user/login?_format=json',
     ])
+    expect($auth.request.mock.calls[1][0].params).toStrictEqual({
+      token: 'logout-old',
+    })
     expect(storage['drupal-password.logout_token']).toBe('logout-new')
-    expect(grant).toHaveBeenCalledTimes(1)
+    expect(grant).toHaveBeenCalledWith(credentials, { reset: false })
+  })
+
+  test('a stale token whose server session has gone is simply overwritten', async () => {
+    // The server session expired, so the new sign-in succeeds outright and
+    // its token replaces the stale one, with no logout request.
+    storage['drupal-password.logout_token'] = 'logout-old'
+    $auth.request.mockResolvedValueOnce(loginResponse('logout-new'))
+
+    await scheme({ session: true }).login(credentials)
+
+    expect($auth.request.mock.calls.map((c) => c[0].url)).toEqual([
+      '/user/login?_format=json',
+    ])
+    expect(storage['drupal-password.logout_token']).toBe('logout-new')
+  })
+
+  test('a late reset logout does not delete a token a newer sign-in stored', async () => {
+    // reset() ends a session without awaiting. If its logout lands after a
+    // fresh sign-in has stored a new token, it must not delete that token, or
+    // the new session is stranded with none to end it.
+    storage['drupal-password.logout_token'] = 'logout-old'
+    let releaseLogout
+    $auth.request.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseLogout = () => resolve({ data: {} })
+        })
+    )
+
+    const s = scheme({ session: true })
+    s.reset() // fires drupalLogout('logout-old'), not awaited
+    storage['drupal-password.logout_token'] = 'logout-new' // a sign-in stored this
+    releaseLogout()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(storage['drupal-password.logout_token']).toBe('logout-new')
   })
 
   test('a grant refused after the session opened ends the session again', async () => {
@@ -192,29 +230,6 @@ describe('DrupalPasswordScheme', () => {
       token: 'logout-123',
     })
     expect(storage['drupal-password.logout_token']).toBeUndefined()
-  })
-
-  test('a sign-in resets first, ending a session left behind, then opens its own', async () => {
-    // The refresh scheme resets before it requests. Left to it, the reset
-    // would run after the session opened and end that one. So the scheme
-    // resets first, and hands the grant reset: false.
-    storage['drupal-password.logout_token'] = 'logout-old'
-    $auth.request
-      .mockResolvedValueOnce({ data: {} })
-      .mockResolvedValueOnce(loginResponse('logout-new'))
-    const s = scheme({ session: true })
-    await s.login(credentials)
-    expect(s.resets).toBe(1)
-    expect(s.lastReset).toStrictEqual({ resetInterceptor: false })
-    expect($auth.request.mock.calls.map((c) => c[0].url)).toEqual([
-      '/user/logout?_format=json',
-      '/user/login?_format=json',
-    ])
-    expect($auth.request.mock.calls[0][0].params).toStrictEqual({
-      token: 'logout-old',
-    })
-    expect(storage['drupal-password.logout_token']).toBe('logout-new')
-    expect(grant).toHaveBeenCalledWith(credentials, { reset: false })
   })
 
   test('with the session off, the reset is left to the refresh scheme', async () => {

@@ -175,7 +175,12 @@ export const withDrupalSession = (Base) =>
         if (((error || {}).response || {}).status !== 403) return false
       }
 
-      this.$auth.$storage.removeUniversal(this.logoutTokenKey)
+      // Remove only the token that was sent. reset() ends a session without
+      // awaiting, so a concurrent sign-in may have stored a newer one, and
+      // clearing that would strand the new session with no token to end it.
+      if (this.$auth.$storage.getUniversal(this.logoutTokenKey) === token) {
+        this.$auth.$storage.removeUniversal(this.logoutTokenKey)
+      }
       return true
     }
 
