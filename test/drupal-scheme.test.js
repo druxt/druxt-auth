@@ -149,7 +149,7 @@ describe('DrupalScheme', () => {
     storage['drupal-authorization_code.logout_token'] = 'logout-123'
     $auth.request.mockResolvedValueOnce({ data: {} })
     scheme().reset()
-    await new Promise((resolve) => setImmediate(resolve))
+    await new Promise((resolve) => setTimeout(resolve, 0))
     expect($auth.request).toHaveBeenCalledWith(
       expect.objectContaining({
         url: '/user/logout?_format=json',

@@ -145,9 +145,13 @@ describe('DrupalPasswordScheme', () => {
     expect(grant).not.toHaveBeenCalled()
   })
 
-  test('a session this scheme abandoned is ended and the sign-in retried', async () => {
+  test('a session the reset could not end is found again and ended before the grant', async () => {
+    // Reset runs first and ends a session left behind. When that request
+    // fails, the token is kept, so Drupal answers the sign-in with 403 and
+    // openSession ends the session with the same token before retrying.
     storage['drupal-password.logout_token'] = 'logout-old'
     $auth.request
+      .mockRejectedValueOnce(httpError(500, 'Service unavailable'))
       .mockRejectedValueOnce(
         httpError(403, 'This route can only be accessed by anonymous users.')
       )
@@ -157,6 +161,7 @@ describe('DrupalPasswordScheme', () => {
     await scheme({ session: true }).login(credentials)
 
     expect($auth.request.mock.calls.map((c) => c[0].url)).toEqual([
+      '/user/logout?_format=json',
       '/user/login?_format=json',
       '/user/logout?_format=json',
       '/user/login?_format=json',
@@ -224,7 +229,7 @@ describe('DrupalPasswordScheme', () => {
     storage['drupal-password.logout_token'] = 'logout-123'
     $auth.request.mockResolvedValueOnce({ data: {} })
     scheme({ session: true }).reset()
-    await new Promise((resolve) => setImmediate(resolve))
+    await new Promise((resolve) => setTimeout(resolve, 0))
     expect($auth.request).toHaveBeenCalledWith(
       expect.objectContaining({
         url: '/user/logout?_format=json',
