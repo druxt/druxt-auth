@@ -235,7 +235,7 @@ const NuxtModule = function (moduleOptions = {}) {
         } catch (err) {
           // Handle error.
           console.error(err)
-          res.statusCode = (err.response || {}).statusCode || 500
+          res.statusCode = (err.response || {}).status || 500
           res.end(JSON.stringify({ ...((err.response || {}).data || {}) }))
         }
       })
