@@ -145,13 +145,19 @@ route to the backend that can, point `sessionLogout` at it, and that session is
 ended instead of refused. Writing the route is the site's job:
 
 ```js
-endpoints: {
-  // The route, and the verb it answers on.
-  sessionLogout: '/your/route',
-  sessionLogoutMethod: 'post',
-  // Where the CSRF token comes from. Core's own route, on every Drupal.
-  // Set this to null for a route that takes no token.
-  csrfToken: '/session/token'
+auth: {
+  strategies: {
+    'drupal-authorization_code': {
+      endpoints: {
+        // The route, and the verb it answers on.
+        sessionLogout: '/your/route',
+        sessionLogoutMethod: 'post',
+        // Where the CSRF token comes from. Core's own route, on every Drupal.
+        // Set this to null for a route that takes no token.
+        csrfToken: '/session/token',
+      },
+    },
+  },
 }
 ```
 
