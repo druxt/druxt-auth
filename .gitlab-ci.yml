@@ -193,6 +193,60 @@ test:unit:
     expire_in: 1 week
   coverage: '/All files\s*\|\s*([\d.]+)/'
 
+# The end-to-end run: a real Drupal, a real consumer, a real browser. It is
+# the only check that exercises the module inside a Nuxt application rather
+# than against its own code.
+test:e2e:
+  extends: .php-node
+  stage: test
+  needs: []
+  variables:
+    WEBSERVER_HOST: '127.0.0.1'
+    WEBSERVER_PORT: '8888'
+    DB_FILE: /tmp/druxt-auth-e2e.sqlite
+    # The last check is guarded on this. Unset, it skips and the run still
+    # says it passed, one check lighter.
+    CLIENT_ID: d428854d-7d89-4756-816f-3ab1ddf7dd36
+    PASSWORD_CLIENT_ID: 6f2a1c40-98e3-4a2b-9c71-5d0e8b4f3a19
+  script:
+    - section_start "module" "Building the module"
+    - yarn install --frozen-lockfile
+    - yarn build
+    - section_end "module"
+    - section_start "backend" "Provisioning and starting the example backend"
+    - yarn example:assemble
+    - yarn example:provision
+    - yarn example:start
+    # A backend that answers is the precondition; without this the browser
+    # failures below would all read as module defects.
+    - curl -fsS "http://$WEBSERVER_HOST:$WEBSERVER_PORT/jsonapi" | grep -q '"jsonapi"'
+    - section_end "backend"
+    - section_start "frontend" "Building and serving the example frontend"
+    - yarn example:install
+    - yarn example:build
+    - yarn example:serve &
+    - bash scripts/wait-for-server.sh http://localhost:3000 120
+    - section_end "frontend"
+    - section_start "e2e" "Signing in through a browser"
+    # Not --with-deps: on arm64 Playwright falls back to an Ubuntu 20.04
+    # package list naming ttf-unifont and ttf-ubuntu-font-family, neither of
+    # which exists on this image's Debian.
+    - apt-get install -yqq --no-install-recommends libnss3 libnspr4 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2t64 fonts-liberation fonts-unifont > /dev/null
+    - npx playwright install chromium
+    - yarn test:e2e
+    - section_end "e2e"
+  after_script:
+    - (cd example/drupal && .devtools/stop) || true
+    # The server writes to /tmp, which artifacts cannot reach. Without this
+    # the collector reports "no matching files" and the log is lost, which is
+    # the one thing worth having when the run fails.
+    - cp /tmp/druxt-auth-drupal-php-server.log example/drupal/.devtools/ || true
+  artifacts:
+    when: on_failure
+    paths:
+      - example/drupal/.devtools/*.log
+    expire_in: 1 week
+
 #
 # --- Secret detection ---
 #
@@ -277,10 +331,6 @@ lint:knip:
 # consumer; a devDependency advisory is worth knowing about and not worth
 # blocking a merge request on.
 
-# Production only. A shipped runtime dependency is what actually reaches a
-# consumer; a devDependency advisory is worth knowing about and not worth
-# blocking a merge request on.
-
 lint:audit:
   extends: .node
   stage: lint
@@ -296,9 +346,6 @@ lint:audit:
     - yarn lint:audit
     - section_end "audit"
 
-# yamllint covers this file; actionlint covers the GitHub workflow, which
-# nothing on the GitHub side lints before a push.
-
 # The work is the author's. No commit, merge request description or tracked
 # file may credit an AI tool as author, co-author or generator. Full history,
 # because the range is the merge request's own and its base has to be present.
@@ -313,9 +360,6 @@ lint:attribution:
     - section_start "attribution" "Checking for AI attribution"
     - bash .gitlab/scripts/check-attribution.sh
     - section_end "attribution"
-
-# Project voice over the markdown a change touches, its commit messages and the
-# merge request description. The changesets README and the Drupal scaffold are third-party text.
 
 # Project voice over the markdown a change touches, its commit messages and the
 # merge request description. The changesets README and the Drupal scaffold are third-party text.
@@ -339,61 +383,3 @@ lint:prose:
     - if [ -n "${CI_MERGE_REQUEST_IID:-}" ]; then prose_args=""; else prose_args="--skip-commits"; fi
     - bash .gitlab/scripts/lint-prose.sh $prose_args
     - section_end "prose"
-
-#
-# --- Test ---
-#
-
-# The end-to-end run: a real Drupal, a real consumer, a real browser. It is
-# the only check that exercises the module inside a Nuxt application rather
-# than against its own code.
-test:e2e:
-  extends: .php-node
-  stage: test
-  needs: []
-  variables:
-    WEBSERVER_HOST: '127.0.0.1'
-    WEBSERVER_PORT: '8888'
-    DB_FILE: /tmp/druxt-auth-e2e.sqlite
-    # The last check is guarded on this. Unset, it skips and the run still
-    # says it passed, one check lighter.
-    CLIENT_ID: d428854d-7d89-4756-816f-3ab1ddf7dd36
-    PASSWORD_CLIENT_ID: 6f2a1c40-98e3-4a2b-9c71-5d0e8b4f3a19
-  script:
-    - section_start "module" "Building the module"
-    - yarn install --frozen-lockfile
-    - yarn build
-    - section_end "module"
-    - section_start "backend" "Provisioning and starting the example backend"
-    - yarn example:assemble
-    - yarn example:provision
-    - yarn example:start
-    # A backend that answers is the precondition; without this the browser
-    # failures below would all read as module defects.
-    - curl -fsS "http://$WEBSERVER_HOST:$WEBSERVER_PORT/jsonapi" | grep -q '"jsonapi"'
-    - section_end "backend"
-    - section_start "frontend" "Building and serving the example frontend"
-    - yarn example:install
-    - yarn example:build
-    - yarn example:serve &
-    - bash scripts/wait-for-server.sh http://localhost:3000 120
-    - section_end "frontend"
-    - section_start "e2e" "Signing in through a browser"
-    # Not --with-deps: on arm64 Playwright falls back to an Ubuntu 20.04
-    # package list naming ttf-unifont and ttf-ubuntu-font-family, neither of
-    # which exists on this image's Debian.
-    - apt-get install -yqq --no-install-recommends libnss3 libnspr4 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2t64 fonts-liberation fonts-unifont > /dev/null
-    - npx playwright install chromium
-    - yarn test:e2e
-    - section_end "e2e"
-  after_script:
-    - (cd example/drupal && .devtools/stop) || true
-    # The server writes to /tmp, which artifacts cannot reach. Without this
-    # the collector reports "no matching files" and the log is lost, which is
-    # the one thing worth having when the run fails.
-    - cp /tmp/druxt-auth-drupal-php-server.log example/drupal/.devtools/ || true
-  artifacts:
-    when: on_failure
-    paths:
-      - example/drupal/.devtools/*.log
-    expire_in: 1 week
