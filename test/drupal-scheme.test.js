@@ -105,6 +105,53 @@ describe('DrupalScheme', () => {
     ).rejects.toThrow('unrecognized')
   })
 
+  test('a session this scheme opened is ended, then the sign in retried', async () => {
+    // Two cases, one path. An authorisation the visitor abandoned leaves our
+    // own session behind, and refusing it would lock them out until they
+    // cleared their cookies. On a shared browser it is the previous person's
+    // session: ending it signs the new one in as themselves, rather than
+    // sending them off to find someone else's sign-out. The refusal is left
+    // for a session started outside the frontend, which is the only one
+    // whose owner we cannot establish.
+    storage['drupal-authorization_code.logout_token'] = 'logout-123'
+    $auth.request
+      .mockRejectedValueOnce(
+        httpError(403, 'This route can only be accessed by anonymous users.')
+      )
+      .mockResolvedValueOnce({ data: {} })
+      .mockResolvedValueOnce({ data: { logout_token: 'logout-456' } })
+
+    expect(
+      await scheme().login({ credentials: { name: 'editor', pass: 'secret' } })
+    ).toStrictEqual({ oauth2: 'login', options: {} })
+
+    const urls = $auth.request.mock.calls.map((c) => c[0].url)
+    expect(urls).toEqual([
+      '/user/login?_format=json',
+      '/user/logout?_format=json',
+      '/user/login?_format=json',
+    ])
+  })
+
+  test('the refusal is flagged, so a form can tell it from a network failure', async () => {
+    $auth.request.mockRejectedValueOnce(
+      httpError(403, 'This route can only be accessed by anonymous users.')
+    )
+    await expect(
+      scheme().login({ credentials: { name: 'editor', pass: 'secret' } })
+    ).rejects.toMatchObject({ sessionInUse: true })
+  })
+
+  test('a session it did not open is refused, token or no token', async () => {
+    // No logout token, so this session is not ours to end.
+    $auth.request.mockRejectedValueOnce(
+      httpError(403, 'This route can only be accessed by anonymous users.')
+    )
+    await expect(
+      scheme().login({ credentials: { name: 'editor', pass: 'secret' } })
+    ).rejects.toThrow(/already open/i)
+  })
+
   test('an existing Drupal session refuses the credentials rather than reusing it', async () => {
     // Drupal answers 403 when a session is already open, and that session is
     // whoever left it there. Carrying on would issue a token for them, so on
@@ -161,6 +208,23 @@ describe('DrupalScheme', () => {
       params: { token: 'logout-123' },
       withCredentials: true,
     })
+    expect(storage['drupal-authorization_code.logout_token']).toBeUndefined()
+  })
+
+  test('logout keeps the token when the request failed for an unknown reason', async () => {
+    // The session may still be alive, and the token is the only way back to
+    // it. Discarding it would leave a session nothing can end, which the
+    // existing-session check then reads as someone else's.
+    storage['drupal-authorization_code.logout_token'] = 'logout-123'
+    $auth.request.mockRejectedValueOnce(new Error('offline'))
+    expect(await scheme().logout()).toStrictEqual({ oauth2: 'logout' })
+    expect(storage['drupal-authorization_code.logout_token']).toBe('logout-123')
+  })
+
+  test('logout discards the token once Drupal says the session is gone', async () => {
+    storage['drupal-authorization_code.logout_token'] = 'logout-123'
+    $auth.request.mockRejectedValueOnce(httpError(403, 'Access denied'))
+    await scheme().logout()
     expect(storage['drupal-authorization_code.logout_token']).toBeUndefined()
   })
 

@@ -47,13 +47,23 @@ export default class DrupalScheme extends Oauth2Scheme {
     const endpoints = this.options.endpoints
 
     if (credentials) {
-      // Never carry on into the authorize step on a session these credentials
-      // did not create. Drupal would issue a token for whoever left it there,
-      // which on a shared browser signs one person in as another.
+      // Drupal refuses a second sign-in while a session is open, and that
+      // session may not be ours. One this scheme opened is an authorisation
+      // the visitor abandoned, so end it and sign in properly. Any other
+      // belongs to whoever left it there, and carrying on would issue them a
+      // token: on a shared browser, one person signed in as another.
       if (await this.drupalLogin(credentials)) {
-        throw new Error(
-          'A Drupal session is already open in this browser. Sign out of it before signing in with credentials.'
-        )
+        const refuse = () => {
+          const error = new Error(
+            'A Drupal session is already open in this browser. Sign out of it before signing in with credentials.'
+          )
+          // Flagged rather than matched on: a sign-in form has to tell this
+          // apart from a network failure, and the message is not a contract.
+          error.sessionInUse = true
+          throw error
+        }
+        if (!(await this.drupalLogout())) refuse()
+        if (await this.drupalLogin(credentials)) refuse()
       }
     }
 
@@ -106,22 +116,42 @@ export default class DrupalScheme extends Oauth2Scheme {
    * Ends the Drupal session too, when this scheme started one, then signs
    * out the way oauth2 does.
    */
-  async logout () {
+  /**
+   * Ends the Drupal session this scheme opened.
+   *
+   * Drupal issues the logout token at login, so holding one is what makes a
+   * session ours to end. The token is only discarded once the session is
+   * known to be gone: a request that failed for any other reason may have
+   * left it alive, and the token is the only way back to it.
+   *
+   * @returns {boolean} Whether the session is now ended.
+   */
+  async drupalLogout () {
     const token = this.$auth.$storage.getUniversal(this.logoutTokenKey)
-    if (token) {
-      try {
-        await this.$auth.request({
-          method: 'post',
-          baseURL: '',
-          url: this.options.endpoints.drupalLogout,
-          params: { token },
-          withCredentials: true,
-        })
-      } catch (error) {
-        // A session that has already ended is the outcome wanted.
-      }
-      this.$auth.$storage.removeUniversal(this.logoutTokenKey)
+    if (!token) return false
+
+    try {
+      await this.$auth.request({
+        method: 'post',
+        baseURL: '',
+        url: this.options.endpoints.drupalLogout,
+        params: { token },
+        withCredentials: true,
+      })
+    } catch (error) {
+      // 403 is Drupal saying the session has already ended, which is the
+      // outcome wanted. Anything else leaves it possibly alive.
+      if (((error || {}).response || {}).status !== 403) return false
     }
+
+    this.$auth.$storage.removeUniversal(this.logoutTokenKey)
+    return true
+  }
+
+  async logout () {
+    // Signing out locally happens either way. A Drupal session this could
+    // not reach is not a reason to strand the visitor signed in here.
+    await this.drupalLogout()
     return super.logout()
   }
 
