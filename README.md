@@ -1,4 +1,4 @@
-<img src="https://github.com/druxt/druxt-auth/raw/develop/.github/banner.svg" alt="DruxtAuth signs visitors in to Drupal with Simple OAuth">
+<img src="https://github.com/druxt/druxt-auth/raw/develop/.github/banner.svg" alt="druxt-auth, the authentication module for DruxtJS">
 
 # DruxtAuth
 
