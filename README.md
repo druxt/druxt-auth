@@ -235,10 +235,73 @@ holding the string `"false"`. The keys are named for the strategy, so
 forces a full page load, which is also what empties the DruxtStore of content
 fetched while logged in.
 
+## Signing in
+
+The module adds a `/user/login` page with a sign in form:
+
+```vue
+<DruxtAuthLogin />
+```
+
+Put it wherever you like instead:
+
+```vue
+<DruxtAuthLogin redirect="/account" />
+```
+
+The form matches what the strategy can do. On the `drupal-authorization_code`
+strategy it asks for a username and password and signs in without sending the
+visitor to Drupal. On a strategy that cannot take credentials it renders a
+button that starts the redirect instead.
+
+The credentials form needs two conditions. Drupal must be
+same origin with the frontend, because the session cookie has to reach
+`/oauth/authorize`, so use the API proxy above. The Consumer must also have
+**Automatically authorize this client** set, or Drupal shows its own consent
+page and the visitor leaves the site.
+
+Style it with your own CSS. Give the inputs a font size of at least 16px at
+coarse pointers, or iOS zooms the page when one takes focus.
+
+The proxy and this page share the `/user/login` path and do not collide. The
+module proxies that path for POST alone, which is what Drupal's JSON login
+answers on, so a GET reaches this page.
+
+A component that replaces the form receives the username and password, since
+it renders the fields. Treat an override the way you would treat any code
+handling a password.
+
+### Replacing it
+
+Add your own `pages/user/login.vue` and the module leaves the route alone,
+so upgrading changes nothing for a site that already has a login page.
+
+To theme the form rather than replace the page, add a component named after
+the strategy, or `DruxtAuthLoginDefault` for all of them:
+
+```vue
+<!-- components/DruxtAuthLoginDrupalAuthorizationCode.vue -->
+<template>
+  <form @submit.prevent="submit">
+    <p v-if="error">{{ error }}</p>
+    <input v-model="credentials.name" />
+    <input v-model="credentials.pass" type="password" />
+    <button :disabled="busy">Sign in</button>
+  </form>
+</template>
+
+<script>
+export default {
+  props: ['busy', 'capabilities', 'credentials', 'error', 'reset', 'submit', 'resetPassword'],
+}
+</script>
+```
+
 ## Options
 
-| Option         | Type     | Required | Default     | Description                                                                                                                                                                                                              |
-| -------------- | -------- | -------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `clientId`     | `string` | Yes      | `undefined` | The Drupal Consumer's **Client ID** field, not its UUID                                                                                                                                                                  |
-| `clientSecret` | `string` | No       | `undefined` | The Drupal Consumer API secret. Required for Password grant.                                                                                                                                                             |
-| `scope`        | `array`  | No       | `undefined` | The OAuth scopes to request. When unset, no `scope` parameter is sent and Simple OAuth 6 falls back to the consumer's own **Authorization code scopes** - so either set this option or configure scopes on the consumer. |
+| Option         | Type               | Required | Default       | Description                                                                                                                                                                                                              |
+| -------------- | ------------------ | -------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `clientId`     | `string`           | Yes      | `undefined`   | The Drupal Consumer's **Client ID** field, not its UUID                                                                                                                                                                  |
+| `clientSecret` | `string`           | No       | `undefined`   | The Drupal Consumer API secret. Required for Password grant.                                                                                                                                                             |
+| `login`        | `string`/`boolean` | No       | `/user/login` | Where the sign in page goes. `false` leaves it out. A page the site already has always wins.                                                                                                                             |
+| `scope`        | `array`            | No       | `undefined`   | The OAuth scopes to request. When unset, no `scope` parameter is sent and Simple OAuth 6 falls back to the consumer's own **Authorization code scopes** - so either set this option or configure scopes on the consumer. |

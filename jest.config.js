@@ -1,6 +1,10 @@
 module.exports = {
   collectCoverage: true,
-  collectCoverageFrom: ['src/**/*.{js,vue}'],
+  // Javascript only. vue-jest 3 hands istanbul a single file component as one
+  // line, so a 300 line component reports as three lines and one function,
+  // and counting that would move the floor below without measuring anything.
+  // The components are still tested, they are just not counted here.
+  collectCoverageFrom: ['src/**/*.js'],
   coverageDirectory: './coverage/',
   coveragePathIgnorePatterns: ['/dist/', '/node_modules/'],
   // cobertura feeds the merge request coverage view, text feeds the regex the

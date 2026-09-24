@@ -15,7 +15,8 @@
     ".": {
       "require": "./dist/index.ssr.js",
       "import": "./dist/index.esm.js"
-    }
+    },
+    "./components/*": "./dist/components/*"
   },
   "main": "dist/index.ssr.js",
   "module": "dist/index.esm.js",

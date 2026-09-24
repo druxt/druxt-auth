@@ -34,6 +34,7 @@ describe('DruxtAuth Nuxt module', () => {
       extendRoutes: jest.fn((fn) => {
         fn([], jest.fn())
       }),
+      nuxt: { hook: jest.fn() },
       options: {
         druxt: {
           baseUrl: 'https://demo-api.druxtjs.org',

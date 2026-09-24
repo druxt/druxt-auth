@@ -25,6 +25,7 @@ export const strategyOptions = (
     addModule: jest.fn(),
     addTemplate: jest.fn(),
     extendRoutes: jest.fn((fn) => fn([], jest.fn())),
+    nuxt: { hook: jest.fn() },
     options: {
       druxt: { baseUrl },
       serverMiddleware: [],

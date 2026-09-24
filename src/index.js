@@ -15,6 +15,16 @@ const NuxtModule = function (moduleOptions = {}) {
     },
   }
 
+  // The login route: false to skip it, a string to move it. A site that
+  // already has a login page keeps it either way, see extendRoutes below.
+  const loginOption = (options.auth || {}).login
+  const loginPath =
+    loginOption === false
+      ? false
+      : typeof loginOption === 'string'
+        ? loginOption
+        : '/user/login'
+
   // Check if client ID is provided.
   if (!options.auth.clientId) {
     throw new Error('DruxtAuth requires a clientId to be provided.')
@@ -62,6 +72,9 @@ const NuxtModule = function (moduleOptions = {}) {
     redirect: {
       callback: '/callback',
       logout: '/',
+      // Without this auth-next has nowhere to send an unauthenticated
+      // visitor, so the page below would exist and nothing would reach it.
+      ...(loginPath ? { login: loginPath } : {}),
       ...(this.options.auth || {}).redirect,
     },
 
@@ -70,6 +83,10 @@ const NuxtModule = function (moduleOptions = {}) {
       // plus sign-in with credentials through Drupal's JSON login.
       'drupal-authorization_code': {
         scheme: resolve(__dirname, '../templates/drupal-scheme.js'),
+        // The Drupal login endpoints are same-origin paths, which only
+        // resolve where this module registered the proxy. A site that
+        // fronts both on one origin can set this back to true.
+        credentials: !!proxy,
         endpoints: {
           // The browser-facing URL, and the default. Without credentials the
           // visitor signs in on Drupal's own page, which lives on Drupal's
@@ -191,6 +208,12 @@ const NuxtModule = function (moduleOptions = {}) {
   // Add required modules.
   this.addModule('@nuxtjs/auth-next')
 
+  // Register the components directory, so a site overrides a component by
+  // dropping its own of the same name into `components/`.
+  this.nuxt.hook('components:dirs', (dirs) => {
+    dirs.push({ path: resolve(__dirname, 'components') })
+  })
+
   // Add callback route.
   this.extendRoutes((routes, resolve) => {
     // Only add the callback if there isn't an existing callback.
@@ -212,6 +235,52 @@ const NuxtModule = function (moduleOptions = {}) {
       })
     }
   })
+
+  // Add the login route.
+  if (loginPath) {
+    this.extendRoutes((routes, resolve) => {
+      // A site's own page wins, and it may be language prefixed:
+      // `pages/_langcode/user/login.vue` compiles to
+      // `/:langcode?/user/login`, which an exact compare would miss.
+      // Match the whole path, or the same path behind a language prefix.
+      // Anything else would let an unrelated page ending in the same
+      // segments suppress the route. The path comes from configuration, so
+      // escape it rather than let a dot or a bracket into the pattern.
+      const tail = loginPath
+        .replace(/^\//, '')
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      // vue-router ignores case and accepts a terminal slash, so a site
+      // route written either way already owns the path.
+      const claimed = new RegExp(
+        `^(/:[A-Za-z0-9_]+\\??)?/${tail}/?$`,
+        (this.options.router || {}).caseSensitive ? '' : 'i'
+      )
+      if (routes.find((o) => claimed.test(o.path))) {
+        return
+      }
+
+      this.addTemplate({
+        src: resolve(__dirname, '../templates/login.js'),
+        fileName: 'components/druxt-auth-login.js',
+        options,
+      })
+
+      // Unshift, never push. druxt-router appends `*` and a `/{langcode}*`
+      // per language, and a page directory can hold `user/_id.vue`, which is
+      // `/user/:id`. Any of those, sitting earlier in the array, matches
+      // this path first, because vue-router takes the first match rather
+      // than the most specific one.
+      routes.unshift({
+        name: 'druxt-auth-login',
+        path: loginPath,
+        component: resolve(
+          this.options.buildDir,
+          'components/druxt-auth-login.js'
+        ),
+        chunkName: 'druxt-auth-login',
+      })
+    })
+  }
 }
 
 export default NuxtModule
