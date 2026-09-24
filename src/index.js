@@ -32,12 +32,6 @@ const NuxtModule = function (moduleOptions = {}) {
         ? loginOption
         : '/user/login'
 
-  // Deprecated: the password grant. Simple OAuth 6 ships no Password plugin
-  // (AuthorizationCode, ClientCredentials and RefreshToken only), so the
-  // strategy cannot work against a current Drupal. Signing in with
-  // credentials on the authorization code strategy replaces it. The strategy
-  // stays until 1.0.0 for sites still on Simple OAuth 5.
-  //
   // Check if client ID is provided.
   if (!options.auth.clientId) {
     throw new Error('DruxtAuth requires a clientId to be provided.')
