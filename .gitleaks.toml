@@ -23,3 +23,20 @@ depends on the clone depth, so the check passed or failed by accident.
 """
 targetRules = ["generic-api-key"]
 paths = ['''^example/\.env$''']
+
+[[allowlists]]
+description = """
+The end-to-end job names the client_id of the two consumers it provisions
+from scratch on every run. A client_id is not a credential: RFC 6749 calls it
+public, and it travels in the browser's authorize URL by design. Neither
+consumer's secret is committed.
+
+Scoped to the two literal values rather than to the file. .gitlab-ci.yml is
+exactly where a real credential would get pasted, so every other value in it
+is still reported, including one pasted onto these same two lines.
+"""
+targetRules = ["generic-api-key"]
+regexes = [
+  '''d428854d-7d89-4756-816f-3ab1ddf7dd36''',
+  '''6f2a1c40-98e3-4a2b-9c71-5d0e8b4f3a19''',
+]
