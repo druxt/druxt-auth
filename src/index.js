@@ -1,6 +1,9 @@
 import { resolve } from 'path'
 import axios from 'axios'
 import bodyParser from 'body-parser'
+import { createProxyMiddleware } from 'http-proxy-middleware'
+
+import { proxyEntries } from './proxy'
 
 // eslint-disable-next-line no-unused-vars
 const NuxtModule = function (moduleOptions = {}) {
@@ -35,34 +38,22 @@ const NuxtModule = function (moduleOptions = {}) {
   // Nuxt proxy integration.
   const proxy = (options.proxy || {}).api
   if (proxy) {
-    // The array form throughout, because one entry below is a function and an
-    // object cannot key on one. @nuxtjs/proxy reads both and treats a bare
-    // string, a [context, target] pair and a [context, options] pair alike.
-    const existing = !this.options.proxy
-      ? []
-      : Array.isArray(this.options.proxy)
-        ? this.options.proxy
-        : Object.entries(this.options.proxy)
-
-    this.options.proxy = [
-      ...existing,
-      ['/oauth/userinfo', { target: baseUrl }],
-
-      // Signing in with credentials puts a Drupal session cookie in the
-      // browser, and it only reaches the authorize request when Drupal
-      // answers on this origin. These four are what that takes.
-      //
-      // Proxied for POST alone. Drupal's JSON routes for all three are POST
-      // (user.login.http, user.logout.http, user.pass.http), and a GET has to
-      // reach whatever page sits at that path: the login page this module
-      // adds, or a site's own logout and password pages. Proxying the GET
-      // sends the visitor to Drupal's form and the page never renders.
-      ...['/user/login', '/user/logout', '/user/password'].map((path) => [
-        (candidate, req) => candidate === path && req.method === 'POST',
-        { target: baseUrl },
-      ]),
-      ['/oauth/authorize', { target: baseUrl }],
-    ]
+    // Registered as server middleware here, not appended to the `proxy`
+    // option. @nuxtjs/proxy reads that option once, when it is installed,
+    // and druxt installs it at the end of its own run, so a module that runs
+    // after druxt appends entries nothing ever reads, and the sign-in fails
+    // after Drupal has issued the token. This owes nothing to module order.
+    for (const [context, entry] of proxyEntries(baseUrl)) {
+      this.options.serverMiddleware.push({
+        prefix: false,
+        // The defaults @nuxtjs/proxy applied, so requests go as they did.
+        handler: createProxyMiddleware(context, {
+          changeOrigin: true,
+          ws: true,
+          ...entry,
+        }),
+      })
+    }
   }
 
   // @nuxtjs/auth-next module settings.
@@ -98,7 +89,9 @@ const NuxtModule = function (moduleOptions = {}) {
           // and a cookie does not travel to the backend's, so that flow uses
           // this instead. The scheme picks between them per login.
           ...(proxy ? { authorizationSameOrigin: '/oauth/authorize' } : {}),
-          token: baseUrl + '/oauth/token',
+          // Relative through the proxy, like userInfo: the browser makes
+          // this request, and cannot reach Drupal's origin when it is private.
+          token: (!proxy ? baseUrl : '') + '/oauth/token',
           userInfo: (!proxy ? baseUrl : '') + '/oauth/userinfo',
         },
         clientId:
@@ -124,6 +117,8 @@ const NuxtModule = function (moduleOptions = {}) {
           maxAge: 60 * 60 * 24 * 30,
         },
         endpoints: {
+          // Absolute: the server middleware below posts to this, not the
+          // browser, so it has to name Drupal directly.
           token: baseUrl + '/oauth/token',
           login: {
             baseURL: '',

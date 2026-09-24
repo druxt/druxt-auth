@@ -2,34 +2,17 @@
 
 import { match } from 'http-proxy-middleware/dist/context-matcher.js'
 import DruxtAuthModule from '../src'
+import { proxyEntries } from '../src/proxy'
 
 jest.mock('axios', () => ({ post: jest.fn() }))
 jest.mock('body-parser', () => ({ json: () => jest.fn() }))
 
 const baseUrl = 'https://demo-api.druxtjs.org'
 
+/** Runs the module and hands back the Nuxt it ran against. */
 const run = (options = {}, nuxtOptions = {}) => {
   const mock = {
     addModule: jest.fn(),
-    addTemplate: jest.fn(),
-    extendRoutes: jest.fn((fn) => fn([], jest.fn())),
-    nuxt: { hook: jest.fn() },
-    options: {
-      druxt: { baseUrl, proxy: { api: true } },
-      serverMiddleware: [],
-      ...nuxtOptions,
-    },
-  }
-  DruxtAuthModule.call(mock, { clientId: 'mock-client-id', ...options })
-  return mock.options.proxy
-}
-
-/** The generated `drupal-authorization_code` strategy. */
-const strategy = (nuxtOptions = {}) => {
-  const mock = {
-    addModule: jest.fn(),
-    // Every hook the module may reach for, so a later branch adding one does
-    // not fail here as a missing function rather than as a real change.
     addPlugin: jest.fn(),
     addTemplate: jest.fn(),
     extendRoutes: jest.fn((fn) => fn([], jest.fn())),
@@ -40,28 +23,40 @@ const strategy = (nuxtOptions = {}) => {
       ...nuxtOptions,
     },
   }
-  DruxtAuthModule.call(mock, { clientId: 'mock-client-id' })
-  return mock.options.auth.strategies['drupal-authorization_code']
+  DruxtAuthModule.call(mock, { clientId: 'mock-client-id', ...options })
+  return mock
 }
 
-/** The context of an entry, which is a bare string or a [context, options] pair. */
-const contextOf = (entry) => (Array.isArray(entry) ? entry[0] : entry)
+/** The generated `drupal-authorization_code` strategy. */
+const strategy = (nuxtOptions = {}) =>
+  run({}, nuxtOptions).options.auth.strategies['drupal-authorization_code']
+
+/** The proxy handlers the module registered, as opposed to its token route. */
+const registered = (mock) =>
+  mock.options.serverMiddleware.filter((m) => m.prefix === false)
+
+const entries = proxyEntries(baseUrl)
 
 /** Whether a real http-proxy-middleware would send this request to Drupal. */
-const proxied = (entries, method, url) =>
-  entries.some((entry) =>
-    match(contextOf(entry), `http://site${url}`, { method, url })
+const proxied = (method, url) =>
+  entries.some(([context]) =>
+    match(context, `http://site${url}`, { method, url })
   )
 
 describe('The proxy entries', () => {
   test('send Drupal what the session cookie needs', () => {
-    const entries = run()
     for (const path of ['/user/logout', '/user/password', '/oauth/authorize']) {
-      expect(proxied(entries, 'POST', path)).toBe(true)
+      expect(proxied('POST', path)).toBe(true)
     }
     // The authorize step is a browser redirect, so it must carry a GET too.
-    expect(proxied(entries, 'GET', '/oauth/authorize')).toBe(true)
-    expect(proxied(entries, 'GET', '/oauth/userinfo')).toBe(true)
+    expect(proxied('GET', '/oauth/authorize')).toBe(true)
+    expect(proxied('GET', '/oauth/userinfo')).toBe(true)
+  })
+
+  test('carry the token exchange, which the browser makes', () => {
+    // Without this the browser posts to Drupal's own origin, which it
+    // cannot reach when that origin is private: the normal decoupled shape.
+    expect(proxied('POST', '/oauth/token')).toBe(true)
   })
 
   test('take the session paths for POST only, so the pages still render', () => {
@@ -69,38 +64,52 @@ describe('The proxy entries', () => {
     // user.logout.http, user.pass.http). A GET has to reach whatever page
     // sits there: the login page this module adds, or a site's own logout
     // and password pages. Proxying the GET shows Drupal's form instead.
-    const entries = run()
     for (const path of ['/user/login', '/user/logout', '/user/password']) {
-      expect(proxied(entries, 'POST', path)).toBe(true)
-      expect(proxied(entries, 'GET', path)).toBe(false)
-      expect(proxied(entries, 'POST', `${path}?_format=json`)).toBe(true)
-      expect(proxied(entries, 'GET', `${path}?_format=json`)).toBe(false)
+      expect(proxied('POST', path)).toBe(true)
+      expect(proxied('GET', path)).toBe(false)
+      expect(proxied('POST', `${path}?_format=json`)).toBe(true)
+      expect(proxied('GET', `${path}?_format=json`)).toBe(false)
+    }
+  })
+})
+
+describe('The proxy registration', () => {
+  test('is server middleware, one handler per entry', () => {
+    const handlers = registered(run())
+    expect(handlers).toHaveLength(entries.length)
+    for (const m of handlers) {
+      expect(typeof m.handler).toBe('function')
     }
   })
 
-  test("keep a site's own entries, whichever form they were written in", () => {
-    const fromObject = run(
-      {},
-      { proxy: { '/other': 'https://elsewhere.test' } }
+  test('owes nothing to module order or to what the proxy option holds', () => {
+    // The bug: @nuxtjs/proxy reads `options.proxy` once, when druxt installs
+    // it, so entries appended afterwards were never read. Whatever that
+    // option already holds, and whether it was consumed already, the same
+    // handlers register here.
+    const empty = registered(run())
+    const afterDruxt = registered(
+      run(
+        {},
+        { proxy: { '/jsonapi': baseUrl, '/router/translate-path': baseUrl } }
+      )
     )
-    expect(proxied(fromObject, 'GET', '/other')).toBe(true)
-    expect(proxied(fromObject, 'POST', '/user/login')).toBe(true)
-
-    // A bare string entry is carried through untouched, whatever it means.
-    const fromArray = run({}, { proxy: ['https://elsewhere.test/other'] })
-    expect(fromArray).toContain('https://elsewhere.test/other')
-    expect(proxied(fromArray, 'POST', '/user/login')).toBe(true)
+    const arrayForm = registered(run({}, { proxy: [`${baseUrl}/jsonapi`] }))
+    expect(afterDruxt).toHaveLength(empty.length)
+    expect(arrayForm).toHaveLength(empty.length)
   })
 
-  test('are not added when the proxy is off', () => {
-    const mock = {
-      addModule: jest.fn(),
-      addTemplate: jest.fn(),
-      extendRoutes: jest.fn((fn) => fn([], jest.fn())),
-      nuxt: { hook: jest.fn() },
-      options: { druxt: { baseUrl }, serverMiddleware: [] },
-    }
-    DruxtAuthModule.call(mock, { clientId: 'mock-client-id' })
+  test("leaves a site's own proxy option exactly as it found it", () => {
+    const object = { '/other': 'https://elsewhere.test' }
+    expect(run({}, { proxy: object }).options.proxy).toStrictEqual(object)
+    const array = ['https://elsewhere.test/other']
+    expect(run({}, { proxy: array }).options.proxy).toStrictEqual(array)
+    expect(run().options.proxy).toBeUndefined()
+  })
+
+  test('is absent when the proxy is off', () => {
+    const mock = run({}, { druxt: { baseUrl } })
+    expect(registered(mock)).toHaveLength(0)
     expect(mock.options.proxy).toBeUndefined()
   })
 })
@@ -134,7 +143,27 @@ describe('The authorize endpoint', () => {
   test('names a path the proxy actually carries', () => {
     // The pair is the point: a proxy entry nothing points at, or an endpoint
     // no entry carries, both read as a working same-origin setup.
-    const sameOrigin = strategy().endpoints.authorizationSameOrigin
-    expect(proxied(run(), 'GET', sameOrigin)).toBe(true)
+    expect(proxied('GET', strategy().endpoints.authorizationSameOrigin)).toBe(
+      true
+    )
+  })
+})
+
+describe('The token endpoint', () => {
+  test('is same-origin when proxied, and the proxy carries it', () => {
+    const token = strategy().endpoints.token
+    expect(token).toBe('/oauth/token')
+    expect(proxied('POST', token)).toBe(true)
+  })
+
+  test('names Drupal directly when there is no proxy', () => {
+    expect(strategy({ druxt: { baseUrl } }).endpoints.token).toBe(
+      `${baseUrl}/oauth/token`
+    )
+  })
+
+  test('stays absolute for the password grant, whose server route posts to it', () => {
+    const password = run().options.auth.strategies['drupal-password']
+    expect(password.endpoints.token).toBe(`${baseUrl}/oauth/token`)
   })
 })

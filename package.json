@@ -50,7 +50,8 @@
     "test:watch": "jest --watch"
   },
   "dependencies": {
-    "@nuxtjs/auth-next": "^5.0.0-1667386184.dfbbb54"
+    "@nuxtjs/auth-next": "^5.0.0-1667386184.dfbbb54",
+    "http-proxy-middleware": "^1.0.6"
   },
   "devDependencies": {
     "@babel/core": "7.22.9",
