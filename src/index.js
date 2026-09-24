@@ -2,6 +2,37 @@ import { resolve } from 'path'
 import axios from 'axios'
 import bodyParser from 'body-parser'
 
+const isPlainObject = (value) =>
+  !!value && typeof value === 'object' && !Array.isArray(value)
+
+/**
+ * A site's entry for a built-in strategy extends it rather than replacing it.
+ *
+ * Spread alone replaced it, so a site naming one endpoint dropped the scheme,
+ * the client id and every other endpoint, and the strategy failed silently.
+ * Object-valued keys such as `endpoints` merge one level; anything else the
+ * site names wins. A strategy the module does not define passes through.
+ */
+const extendStrategies = (builtIn, site) => {
+  const strategies = { ...builtIn }
+  for (const [name, options] of Object.entries(site || {})) {
+    const base = builtIn[name]
+    if (!isPlainObject(base) || !isPlainObject(options)) {
+      strategies[name] = options
+      continue
+    }
+    const extended = { ...base }
+    for (const [key, value] of Object.entries(options)) {
+      extended[key] =
+        isPlainObject(base[key]) && isPlainObject(value)
+          ? { ...base[key], ...value }
+          : value
+    }
+    strategies[name] = extended
+  }
+  return strategies
+}
+
 // eslint-disable-next-line no-unused-vars
 const NuxtModule = function (moduleOptions = {}) {
   const options = {
@@ -64,6 +95,9 @@ const NuxtModule = function (moduleOptions = {}) {
       ['/oauth/authorize', { target: baseUrl }],
     ]
   }
+
+  // Captured first: the assignment below rebuilds `strategies`.
+  const siteStrategies = (this.options.auth || {}).strategies
 
   // @nuxtjs/auth-next module settings.
   this.options.auth = {
@@ -144,10 +178,12 @@ const NuxtModule = function (moduleOptions = {}) {
         },
         grantType: 'password',
       },
-
-      ...(this.options.auth || {}).strategies,
     },
   }
+  this.options.auth.strategies = extendStrategies(
+    this.options.auth.strategies,
+    siteStrategies
+  )
 
   // Add password grant server middleware.
   this.options.serverMiddleware.unshift({
