@@ -387,7 +387,11 @@ test:e2e:
     - yarn test:e2e
     - section_end "e2e"
   after_script:
-    - cd example/drupal && .devtools/stop || true
+    - (cd example/drupal && .devtools/stop) || true
+    # The server writes to /tmp, which artifacts cannot reach. Without this
+    # the collector reports "no matching files" and the log is lost, which is
+    # the one thing worth having when the run fails.
+    - cp /tmp/druxt-auth-drupal-php-server.log example/drupal/.devtools/ || true
   artifacts:
     when: on_failure
     paths:
