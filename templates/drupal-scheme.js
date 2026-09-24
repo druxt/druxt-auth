@@ -105,27 +105,38 @@ export default class DrupalScheme extends Oauth2Scheme {
    *
    * @param {object} credentials - `{ name, pass }`.
    * @returns {boolean} Whether an existing session answered instead.
+   * @throws When the answer is not Drupal's, so no session was created.
    */
   async drupalLogin ({ name, pass }) {
+    let data
     try {
-      const { data } = await this.$auth.request({
+      ;({ data } = await this.$auth.request({
         method: 'post',
         baseURL: '',
         url: this.options.endpoints.drupalLogin,
         data: { name, pass },
         withCredentials: true,
-      })
-      if (data && data.logout_token) {
-        this.$auth.$storage.setUniversal(this.logoutTokenKey, data.logout_token)
-      }
-      return false
+      }))
     } catch (error) {
-      const { status, data } = error.response || {}
-      if (status === 403 && /anonymous users/i.test((data || {}).message || '')) {
+      const { status, data: body } = error.response || {}
+      if (status === 403 && /anonymous users/i.test((body || {}).message || '')) {
         return true
       }
       throw error
     }
+
+    // Drupal's JSON login answers with the account and a logout token.
+    // Anything else did not come from Drupal, and a 200 from the site's own
+    // routes would otherwise read as a sign-in these credentials never made.
+    // Checked outside the catch so the refusal cannot be swallowed as one.
+    if (!data || !data.current_user || !data.logout_token) {
+      throw new Error(
+        'The Drupal login endpoint did not answer with a session. Check that this request reaches Drupal rather than the site itself.'
+      )
+    }
+
+    this.$auth.$storage.setUniversal(this.logoutTokenKey, data.logout_token)
+    return false
   }
 
   /**

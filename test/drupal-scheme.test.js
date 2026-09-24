@@ -7,11 +7,21 @@ let $auth, storage
 const httpError = (status, message) =>
   Object.assign(new Error(message), { response: { status, data: { message } } })
 
+// What Drupal's JSON login answers with. The scheme reads this shape as proof
+// the request reached Drupal, so a mock that omits it is not a sign-in.
+const loginResponse = (logoutToken = 'logout-123') => ({
+  data: {
+    current_user: { uid: '2', name: 'tester' },
+    csrf_token: 'csrf-abc123',
+    logout_token: logoutToken,
+  },
+})
+
 describe('DrupalScheme', () => {
   beforeEach(() => {
     storage = {}
     $auth = {
-      request: jest.fn(async () => ({ data: { logout_token: 'logout-123' } })),
+      request: jest.fn(async () => loginResponse()),
       $storage: {
         setUniversal: jest.fn((key, value) => {
           storage[key] = value
@@ -105,6 +115,36 @@ describe('DrupalScheme', () => {
     ).rejects.toThrow('unrecognized')
   })
 
+  test('a page answering the login path is not a sign-in', async () => {
+    // Without the proxy, this POST reaches the site's own routes, and Nuxt
+    // renders a page for it rather than refusing the method. Read as a
+    // sign-in, the authorize step would then run against whatever session
+    // the browser already holds, issuing that person's token to whoever
+    // typed here.
+    $auth.request.mockResolvedValueOnce({
+      data: '<!doctype html><html></html>',
+    })
+
+    await expect(
+      scheme().login({ credentials: { name: 'editor', pass: 'wrong' } })
+    ).rejects.toThrow('did not answer with a session')
+
+    expect(storage['drupal-authorization_code.logout_token']).toBeUndefined()
+    expect($auth.request).toHaveBeenCalledTimes(1)
+  })
+
+  test('a JSON answer without the account is not a sign-in', async () => {
+    $auth.request.mockResolvedValueOnce({
+      data: { logout_token: 'logout-123' },
+    })
+
+    await expect(
+      scheme().login({ credentials: { name: 'editor', pass: 'wrong' } })
+    ).rejects.toThrow('did not answer with a session')
+
+    expect(storage['drupal-authorization_code.logout_token']).toBeUndefined()
+  })
+
   test('a session this scheme opened is ended, then the sign in retried', async () => {
     // Two cases, one path. An authorisation the visitor abandoned leaves our
     // own session behind, and refusing it would lock them out until they
@@ -119,7 +159,7 @@ describe('DrupalScheme', () => {
         httpError(403, 'This route can only be accessed by anonymous users.')
       )
       .mockResolvedValueOnce({ data: {} })
-      .mockResolvedValueOnce({ data: { logout_token: 'logout-456' } })
+      .mockResolvedValueOnce(loginResponse('logout-456'))
 
     expect(
       await scheme().login({ credentials: { name: 'editor', pass: 'secret' } })
@@ -153,7 +193,7 @@ describe('DrupalScheme', () => {
       )
       .mockResolvedValueOnce({ data: 'csrf-abc123\n' })
       .mockResolvedValueOnce({ data: {} })
-      .mockResolvedValueOnce({ data: { logout_token: 'logout-456' } })
+      .mockResolvedValueOnce(loginResponse('logout-456'))
 
     await scheme({ endpoints: { sessionLogout: '/site/end-session' } }).login({
       credentials: { name: 'editor', pass: 'secret' },
@@ -171,7 +211,7 @@ describe('DrupalScheme', () => {
         httpError(403, 'This route can only be accessed by anonymous users.')
       )
       .mockResolvedValueOnce({ data: {} })
-      .mockResolvedValueOnce({ data: { logout_token: 'logout-456' } })
+      .mockResolvedValueOnce(loginResponse('logout-456'))
 
     await scheme({
       endpoints: { sessionLogout: '/site/end-session', csrfToken: null },
@@ -191,7 +231,7 @@ describe('DrupalScheme', () => {
       )
       .mockResolvedValueOnce({ data: 'csrf-abc123' })
       .mockResolvedValueOnce({ data: {} })
-      .mockResolvedValueOnce({ data: { logout_token: 'logout-456' } })
+      .mockResolvedValueOnce(loginResponse('logout-456'))
 
     await scheme({
       endpoints: {
@@ -212,7 +252,7 @@ describe('DrupalScheme', () => {
       )
       .mockResolvedValueOnce({ data: 'csrf-abc123' })
       .mockResolvedValueOnce({ data: {} })
-      .mockResolvedValueOnce({ data: { logout_token: 'logout-456' } })
+      .mockResolvedValueOnce(loginResponse('logout-456'))
 
     const s = scheme({ endpoints: { sessionLogout: '/site/end-session' } })
     expect(
