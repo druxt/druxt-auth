@@ -5,30 +5,28 @@ import bodyParser from 'body-parser'
 const isPlainObject = (value) =>
   !!value && typeof value === 'object' && !Array.isArray(value)
 
+/** Site over base, recursing through plain objects; anything else the site names wins. */
+const extend = (base, over) => {
+  if (!isPlainObject(base) || !isPlainObject(over)) return over
+  const out = { ...base }
+  for (const [key, value] of Object.entries(over))
+    out[key] = extend(base[key], value)
+  return out
+}
+
 /**
  * A site's entry for a built-in strategy extends it rather than replacing it.
  *
  * Spread alone replaced it, so a site naming one endpoint dropped the scheme,
  * the client id and every other endpoint, and the strategy failed silently.
- * Object-valued keys such as `endpoints` merge one level; anything else the
- * site names wins. A strategy the module does not define passes through.
+ * Object-valued keys merge at every depth, so `endpoints.login.url` keeps the
+ * `baseURL` beside it. Anything else the site names wins, so `logout: false`
+ * still replaces. A strategy the module does not define passes through.
  */
 const extendStrategies = (builtIn, site) => {
   const strategies = { ...builtIn }
   for (const [name, options] of Object.entries(site || {})) {
-    const base = builtIn[name]
-    if (!isPlainObject(base) || !isPlainObject(options)) {
-      strategies[name] = options
-      continue
-    }
-    const extended = { ...base }
-    for (const [key, value] of Object.entries(options)) {
-      extended[key] =
-        isPlainObject(base[key]) && isPlainObject(value)
-          ? { ...base[key], ...value }
-          : value
-    }
-    strategies[name] = extended
+    strategies[name] = extend(builtIn[name], options)
   }
   return strategies
 }

@@ -59,6 +59,18 @@ describe("A site's strategy entry", () => {
     expect(s.token.property).toBe('access_token')
   })
 
+  test('a partial endpoint descriptor keeps the fields it does not name', () => {
+    // A site naming only endpoints.login.url must not lose baseURL: '', or
+    // the request goes to Drupal's origin and misses the server route.
+    const s = strategies({
+      strategies: {
+        'drupal-password': { endpoints: { login: { url: '/site/login' } } },
+      },
+    })['drupal-password']
+    expect(s.endpoints.login).toStrictEqual({ baseURL: '', url: '/site/login' })
+    expect(s.endpoints.logout).toBe(false)
+  })
+
   test('passes a strategy the module does not define through untouched', () => {
     const own = { scheme: 'local', endpoints: { login: '/api/login' } }
     expect(strategies({ strategies: { own } }).own).toStrictEqual(own)
