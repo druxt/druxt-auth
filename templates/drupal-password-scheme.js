@@ -52,21 +52,30 @@ export default class DrupalPasswordScheme extends withDrupalSession(
    * Signs in with the password grant, opening a Drupal session first when
    * the strategy asks for one.
    *
-   * The session comes first so a refused sign-in leaves nothing behind:
-   * wrong credentials fail here, and a session that belongs to someone else
-   * is refused here, before Drupal is ever asked for a token.
+   * The session comes first, so wrong credentials and a session that belongs
+   * to someone else are both refused before Drupal is asked for a token. A
+   * grant refused after the session opened ends it again. Either way a
+   * refused sign-in leaves nothing behind.
    *
    * @param {object} endpoint - The request, with `data.username` and
    *   `data.password`, as `loginWith` passes it.
    */
   async login (endpoint = {}, options) {
-    if (this.options.session) {
-      const { username, password } = (endpoint || {}).data || {}
-      // The grant names the fields `username` and `password`; Drupal's JSON
-      // login names them `name` and `pass`. The caller sends the grant's.
-      await this.openSession({ name: username, pass: password })
+    if (!this.options.session) return super.login(endpoint, options)
+
+    const { username, password } = (endpoint || {}).data || {}
+    // The grant names the fields `username` and `password`; Drupal's JSON
+    // login names them `name` and `pass`. The caller sends the grant's.
+    await this.openSession({ name: username, pass: password })
+    try {
+      return await super.login(endpoint, options)
+    } catch (error) {
+      // Left open, the session outlives a sign-in the frontend reports as
+      // failed, and the next person at this browser reaches Drupal's pages
+      // signed in as this one, with nothing to tell either of them.
+      await this.drupalLogout()
+      throw error
     }
-    return super.login(endpoint, options)
   }
 
   /**

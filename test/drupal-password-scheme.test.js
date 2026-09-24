@@ -165,6 +165,30 @@ describe('DrupalPasswordScheme', () => {
     expect(grant).toHaveBeenCalledTimes(1)
   })
 
+  test('a grant refused after the session opened ends the session again', async () => {
+    // Otherwise the session outlives a sign-in the frontend reports as
+    // failed, and the next person at this browser is signed into Drupal's
+    // pages as this one.
+    grant.mockImplementationOnce(() => {
+      throw new Error('invalid_grant')
+    })
+    $auth.request
+      .mockResolvedValueOnce(loginResponse('logout-123'))
+      .mockResolvedValueOnce({ data: {} })
+
+    await expect(scheme({ session: true }).login(credentials)).rejects.toThrow(
+      'invalid_grant'
+    )
+    expect($auth.request.mock.calls.map((c) => c[0].url)).toEqual([
+      '/user/login?_format=json',
+      '/user/logout?_format=json',
+    ])
+    expect($auth.request.mock.calls[1][0].params).toStrictEqual({
+      token: 'logout-123',
+    })
+    expect(storage['drupal-password.logout_token']).toBeUndefined()
+  })
+
   test('signing out ends the Drupal session this scheme opened, then the grant', async () => {
     storage['drupal-password.logout_token'] = 'logout-123'
     $auth.request.mockResolvedValueOnce({ data: {} })
