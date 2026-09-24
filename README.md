@@ -143,6 +143,26 @@ It adds two auth strategies that can be used via the `$auth` plugin:
   The Consumer must approve automatically, or the authorize step shows
   Drupal's consent page.
 
+  A Drupal session already open in the browser refuses these credentials,
+  rather than signing the visitor in as whoever left it there. A session this
+  module opened is ended and the sign in retried, so an abandoned
+  authorisation does not lock anyone out. Any other session is refused, and
+  the error has `sessionInUse` set so a form can say why.
+
+  Drupal core cannot end a session it did not issue a logout token for. Add a
+  route to the backend that can, point `sessionLogout` at it, and that session
+  is ended instead of refused. Writing the route is the site's job:
+
+  ```js
+  auth: {
+    strategies: {
+      'drupal-authorization_code': {
+        endpoints: { sessionLogout: '/your/route' },
+      },
+    },
+  }
+  ```
+
 - `drupal-password`
 
   ```js

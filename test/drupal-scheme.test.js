@@ -142,6 +142,40 @@ describe('DrupalScheme', () => {
     ).rejects.toMatchObject({ sessionInUse: true })
   })
 
+  test('a site that can end a foreign session does, rather than refusing', async () => {
+    // Core cannot do this, so the endpoint is unset by default and the module
+    // ships nothing to serve it. A site that adds a route points here.
+    $auth.request
+      .mockRejectedValueOnce(
+        httpError(403, 'This route can only be accessed by anonymous users.')
+      )
+      .mockResolvedValueOnce({ data: {} })
+      .mockResolvedValueOnce({ data: { logout_token: 'logout-456' } })
+
+    const s = scheme({ endpoints: { sessionLogout: '/site/end-session' } })
+    expect(
+      await s.login({ credentials: { name: 'editor', pass: 'secret' } })
+    ).toStrictEqual({ oauth2: 'login', options: {} })
+    expect($auth.request.mock.calls.map((c) => c[0].url)).toEqual([
+      '/user/login?_format=json',
+      '/site/end-session',
+      '/user/login?_format=json',
+    ])
+  })
+
+  test('a route that refuses leaves the refusal in place', async () => {
+    $auth.request
+      .mockRejectedValueOnce(
+        httpError(403, 'This route can only be accessed by anonymous users.')
+      )
+      .mockRejectedValueOnce(httpError(403, 'Access denied'))
+    await expect(
+      scheme({ endpoints: { sessionLogout: '/site/end-session' } }).login({
+        credentials: { name: 'editor', pass: 'secret' },
+      })
+    ).rejects.toMatchObject({ sessionInUse: true })
+  })
+
   test('a session it did not open is refused, token or no token', async () => {
     // No logout token, so this session is not ours to end.
     $auth.request.mockRejectedValueOnce(

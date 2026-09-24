@@ -23,6 +23,9 @@ const DEFAULTS = {
     drupalLogin: '/user/login?_format=json',
     drupalLogout: '/user/logout?_format=json',
     passwordReset: '/user/password?_format=json',
+    // Unset: Drupal core has no route that ends a session it did not issue a
+    // logout token for. A site that adds one points this at it.
+    sessionLogout: null,
   },
 }
 
@@ -62,7 +65,13 @@ export default class DrupalScheme extends Oauth2Scheme {
           error.sessionInUse = true
           throw error
         }
-        if (!(await this.drupalLogout())) refuse()
+        if (!(await this.drupalLogout())) {
+          // A site whose backend can end a session it did not open points
+          // `endpoints.sessionLogout` at that route. Drupal core cannot: its
+          // JSON logout wants the token issued at login, which this never
+          // had. Unset, the session stands and the credentials are refused.
+          if (!(await this.endForeignSession())) refuse()
+        }
         if (await this.drupalLogin(credentials)) refuse()
       }
     }
@@ -146,6 +155,31 @@ export default class DrupalScheme extends Oauth2Scheme {
 
     this.$auth.$storage.removeUniversal(this.logoutTokenKey)
     return true
+  }
+
+  /**
+   * Ends a Drupal session this scheme did not open.
+   *
+   * Only a site that provides a route for it can do this, so the endpoint is
+   * unset by default and the module ships nothing to serve it.
+   *
+   * @returns {boolean} Whether the session is now ended.
+   */
+  async endForeignSession () {
+    const url = this.options.endpoints.sessionLogout
+    if (!url) return false
+
+    try {
+      await this.$auth.request({
+        method: 'post',
+        baseURL: '',
+        url,
+        withCredentials: true,
+      })
+      return true
+    } catch (error) {
+      return false
+    }
   }
 
   async logout () {
