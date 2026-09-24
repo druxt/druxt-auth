@@ -175,6 +175,19 @@ const NuxtModule = function (moduleOptions = {}) {
       await formMiddleware(req, res, async () => {
         const data = req.body
 
+        // The grants this route exists to make, and the fields each one
+        // takes. The request carries a confidential consumer's secret, so a
+        // grant this does not name would have that secret attached to
+        // whatever the caller asked for instead.
+        const grantFields = {
+          password: ['username', 'password', 'scope'],
+          refresh_token: ['refresh_token', 'scope'],
+        }
+        const fields = grantFields[data.grant_type]
+        if (!fields) {
+          return next(new Error('Unsupported grant type'))
+        }
+
         if (
           data.grant_type === 'password' &&
           (!data.username || !data.password)
@@ -188,6 +201,14 @@ const NuxtModule = function (moduleOptions = {}) {
             (options.auth || {}).clientSecret ||
             process.env.DRUXT_AUTH_CLIENT_SECRET
           const postData = new URLSearchParams({
+            ...Object.fromEntries(
+              fields
+                .filter((field) => data[field] !== undefined)
+                .map((field) => [field, data[field]])
+            ),
+            grant_type: data.grant_type,
+            // Written last, so a caller cannot rename the consumer this
+            // secret belongs to by sending a client_id of their own.
             client_id:
               (options.auth || {}).passwordClientId ||
               (options.auth || {}).clientId ||
@@ -196,7 +217,6 @@ const NuxtModule = function (moduleOptions = {}) {
             // from those alone. URLSearchParams would otherwise send the
             // string "undefined", which never validates.
             ...(secret ? { client_secret: secret } : {}),
-            ...data,
           }).toString()
 
           // Request token,

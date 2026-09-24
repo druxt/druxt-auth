@@ -182,12 +182,12 @@ describe('The password grant token request', () => {
   const axios = require('axios')
 
   /** The form body the middleware posts to Drupal. */
-  const postedBody = async (moduleOptions) => {
+  const postedBody = async (moduleOptions, body) => {
     axios.post.mockClear()
     DruxtAuthModule.call(mock, { clientId: 'mock-client-id', ...moduleOptions })
     const req = {
       method: 'POST',
-      body: { grant_type: 'password', username: 'u', password: 'p' },
+      body: body || { grant_type: 'password', username: 'u', password: 'p' },
     }
     await mock.options.serverMiddleware[0].handler(
       req,
@@ -196,6 +196,69 @@ describe('The password grant token request', () => {
     )
     return new URLSearchParams(axios.post.mock.calls[0][1])
   }
+
+  /** The `next` a refused request is handed. */
+  const refusalFor = async (body) => {
+    axios.post.mockClear()
+    DruxtAuthModule.call(mock, {
+      clientId: 'mock-client-id',
+      clientSecret: 's',
+    })
+    const next = jest.fn()
+    await mock.options.serverMiddleware[0].handler(
+      { method: 'POST', body },
+      { end: jest.fn() },
+      next
+    )
+    return { next, posted: axios.post.mock.calls.length }
+  }
+
+  test('a caller cannot rename the consumer the secret belongs to', async () => {
+    // The secret is attached by this server, so a client_id of the caller's
+    // would send it to a consumer the site never configured.
+    const body = await postedBody(
+      { clientSecret: 'shh' },
+      {
+        grant_type: 'password',
+        username: 'u',
+        password: 'p',
+        client_id: 'attacker-client',
+        client_secret: 'attacker-secret',
+      }
+    )
+    expect(body.get('client_id')).toBe('mock-client-id')
+    expect(body.get('client_secret')).toBe('shh')
+  })
+
+  test('a grant this route does not make is refused, not forwarded', async () => {
+    // Forwarding it would attach the confidential consumer's secret to a
+    // grant the site never intended, with no credentials asked for.
+    const { next, posted } = await refusalFor({
+      grant_type: 'client_credentials',
+    })
+    expect(next).toHaveBeenCalledWith(expect.any(Error))
+    expect(next.mock.calls[0][0].message).toMatch(/grant type/i)
+    expect(posted).toBe(0)
+  })
+
+  test('fields the named grant does not take are dropped', async () => {
+    const body = await postedBody(
+      { clientSecret: 'shh' },
+      { grant_type: 'password', username: 'u', password: 'p', code: 'stolen' }
+    )
+    expect(body.has('code')).toBe(false)
+    expect(body.get('username')).toBe('u')
+  })
+
+  test('the refresh grant still carries its token', async () => {
+    const body = await postedBody(
+      { clientSecret: 'shh' },
+      { grant_type: 'refresh_token', refresh_token: 'r1' }
+    )
+    expect(body.get('grant_type')).toBe('refresh_token')
+    expect(body.get('refresh_token')).toBe('r1')
+    expect(body.get('client_id')).toBe('mock-client-id')
+  })
 
   test('carries the secret a confidential consumer needs', async () => {
     const body = await postedBody({ clientSecret: 'shh' })
