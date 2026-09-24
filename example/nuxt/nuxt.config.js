@@ -36,7 +36,6 @@ export default {
       'druxt-auth',
       {
         clientId: process.env.OAUTH_CLIENT_ID,
-        clientSecret: 'secret',
       },
     ],
     'druxt',
@@ -46,8 +45,9 @@ export default {
   druxt: {
     baseUrl,
 
-    // Uncomment to enable API Proxy mode.
-    // proxy: { api: true }
+    // Signing in with credentials needs Drupal on this origin, and this sets
+    // up the session paths. See the README.
+    proxy: { api: true },
   },
 
   // Build Configuration: https://go.nuxtjs.dev/config-build

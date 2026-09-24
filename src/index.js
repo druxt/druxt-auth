@@ -7,10 +7,17 @@ const NuxtModule = function (moduleOptions = {}) {
   const options = {
     ...(this.options.druxt || {}),
     auth: {
-      ...((this.options.druxt || {}).auth || {}),
+      // Declared first, so they name the shape without overwriting what a
+      // site configured. Spread after the configured values, every one of
+      // these would reset it to undefined.
       clientId: undefined,
       clientSecret: undefined,
+      // The password grant may want its own Consumer. The browser flow needs
+      // a public one, and a Consumer cannot be public and confidential at
+      // once, so a site that uses both points this at the second.
+      passwordClientId: undefined,
       scope: undefined,
+      ...((this.options.druxt || {}).auth || {}),
       ...moduleOptions,
     },
   }
@@ -109,7 +116,8 @@ const NuxtModule = function (moduleOptions = {}) {
         codeChallengeMethod: 'S256',
       },
 
-      // Password grant with API secret.
+      // Password grant. Simple OAuth 6 moved it out of core, so the backend
+      // needs the simple_oauth_password_grant module for this to answer.
       'drupal-password': {
         scheme: 'refresh',
         token: {
@@ -161,6 +169,22 @@ const NuxtModule = function (moduleOptions = {}) {
       await formMiddleware(req, res, async () => {
         const data = req.body
 
+        // The grants this route exists to make, and the fields each one
+        // takes. The request carries a confidential consumer's secret, so a
+        // grant this does not name would have that secret attached to
+        // whatever the caller asked for instead.
+        // A Map, not an object: a plain object resolves inherited names like
+        // `toString` or `constructor` to a truthy value, and a caller names
+        // the grant.
+        const grantFields = new Map([
+          ['password', ['username', 'password', 'scope']],
+          ['refresh_token', ['refresh_token', 'scope']],
+        ])
+        const fields = grantFields.get(data.grant_type)
+        if (!fields) {
+          return next(new Error('Unsupported grant type'))
+        }
+
         if (
           data.grant_type === 'password' &&
           (!data.username || !data.password)
@@ -170,13 +194,26 @@ const NuxtModule = function (moduleOptions = {}) {
 
         try {
           // Build POST data string.
+          const secret =
+            (options.auth || {}).clientSecret ||
+            process.env.DRUXT_AUTH_CLIENT_SECRET
           const postData = new URLSearchParams({
+            ...Object.fromEntries(
+              fields
+                .filter((field) => data[field] !== undefined)
+                .map((field) => [field, data[field]])
+            ),
+            grant_type: data.grant_type,
+            // Written last, so a caller cannot rename the consumer this
+            // secret belongs to by sending a client_id of their own.
             client_id:
-              (options.auth || {}).clientId || process.env.DRUXT_AUTH_CLIENT_ID,
-            client_secret:
-              (options.auth || {}).clientSecret ||
-              process.env.DRUXT_AUTH_CLIENT_SECRET,
-            ...data,
+              (options.auth || {}).passwordClientId ||
+              (options.auth || {}).clientId ||
+              process.env.DRUXT_AUTH_CLIENT_ID,
+            // Only a confidential consumer has one, and OAuth asks for it
+            // from those alone. URLSearchParams would otherwise send the
+            // string "undefined", which never validates.
+            ...(secret ? { client_secret: secret } : {}),
           }).toString()
 
           // Request token,
@@ -195,7 +232,7 @@ const NuxtModule = function (moduleOptions = {}) {
         } catch (err) {
           // Handle error.
           console.error(err)
-          res.statusCode = (err.response || {}).statusCode || 500
+          res.statusCode = (err.response || {}).status || 500
           res.end(JSON.stringify({ ...((err.response || {}).data || {}) }))
         }
       })

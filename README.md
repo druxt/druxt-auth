@@ -35,6 +35,7 @@ module.exports = {
       'druxt-auth',
       {
         clientId: '[DRUPAL_CONSUMER_CLIENT_ID]',
+        // Only for the password grant, and only a confidential Consumer.
         clientSecret: '[DRUPAL_CONSUMER_SECRET]',
       },
     ],
@@ -176,16 +177,23 @@ It adds two auth strategies that can be used via the `$auth` plugin:
 
 - `drupal-password`
 
+  Simple OAuth 6 moved the password grant out of core. Install
+  [simple_oauth_password_grant](https://www.drupal.org/project/simple_oauth_password_grant)
+  on the backend and enable **Password** on the Consumer's grant types.
+
   ```js
   this.$nuxt.$auth.loginWith('drupal-password', {
-    data: {
-      username: '',
-      password: '',
-    },
+    data: { username: '', password: '' },
   })
   ```
 
-  _Note:_ nuxt must be running in SSR mode for password grant, and client secret must be set.
+  The username and password reach Drupal through this module's own server
+  route, so the site must run in SSR mode. Set `clientSecret` for a
+  confidential Consumer. A public one needs none, and the request leaves it
+  out rather than sending an empty value.
+
+  A Consumer cannot be public and confidential at once, so a site running both
+  this and the browser flow needs two: set `passwordClientId` to the second.
 
 - See the **nuxt/auth** documentation form more details: https://auth.nuxtjs.org/api/auth
 
@@ -299,9 +307,10 @@ export default {
 
 ## Options
 
-| Option         | Type               | Required | Default       | Description                                                                                                                                                                                                              |
-| -------------- | ------------------ | -------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `clientId`     | `string`           | Yes      | `undefined`   | The Drupal Consumer's **Client ID** field, not its UUID                                                                                                                                                                  |
-| `clientSecret` | `string`           | No       | `undefined`   | The Drupal Consumer API secret. Required for Password grant.                                                                                                                                                             |
-| `login`        | `string`/`boolean` | No       | `/user/login` | Where the sign in page goes. `false` leaves it out. A page the site already has always wins.                                                                                                                             |
-| `scope`        | `array`            | No       | `undefined`   | The OAuth scopes to request. When unset, no `scope` parameter is sent and Simple OAuth 6 falls back to the consumer's own **Authorization code scopes** - so either set this option or configure scopes on the consumer. |
+| Option             | Type               | Required | Default       | Description                                                                                                                                                                                                              |
+| ------------------ | ------------------ | -------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `clientId`         | `string`           | Yes      | `undefined`   | The Drupal Consumer's **Client ID** field, not its UUID                                                                                                                                                                  |
+| `passwordClientId` | `string`           | No       | `clientId`    | The Consumer the password grant authenticates as, when it differs from the browser flow's.                                                                                                                               |
+| `clientSecret`     | `string`           | No       | `undefined`   | The Drupal Consumer API secret. The password grant sends it, and a public Consumer needs none.                                                                                                                           |
+| `login`            | `string`/`boolean` | No       | `/user/login` | Where the sign in page goes. `false` leaves it out. A page the site already has always wins.                                                                                                                             |
+| `scope`            | `array`            | No       | `undefined`   | The OAuth scopes to request. When unset, no `scope` parameter is sent and Simple OAuth 6 falls back to the consumer's own **Authorization code scopes** - so either set this option or configure scopes on the consumer. |
