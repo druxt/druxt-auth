@@ -47,7 +47,14 @@ export default class DrupalScheme extends Oauth2Scheme {
     const endpoints = this.options.endpoints
 
     if (credentials) {
-      await this.drupalLogin(credentials)
+      // Never carry on into the authorize step on a session these credentials
+      // did not create. Drupal would issue a token for whoever left it there,
+      // which on a shared browser signs one person in as another.
+      if (await this.drupalLogin(credentials)) {
+        throw new Error(
+          'A Drupal session is already open in this browser. Sign out of it before signing in with credentials.'
+        )
+      }
     }
 
     // Where the browser goes to authorize depends on where the session was
@@ -65,9 +72,13 @@ export default class DrupalScheme extends Oauth2Scheme {
   /**
    * Starts a Drupal session through its JSON login.
    *
-   * A session that is already signed in answers 403, and is used as it is.
+   * Drupal answers 403 when a session already exists, and that session
+   * belongs to whoever left it there rather than to whoever just submitted
+   * these credentials. Reusing it would sign the second person in as the
+   * first, so this reports the reuse and lets the caller refuse it.
    *
    * @param {object} credentials - `{ name, pass }`.
+   * @returns {boolean} Whether an existing session answered instead.
    */
   async drupalLogin ({ name, pass }) {
     try {
@@ -81,10 +92,11 @@ export default class DrupalScheme extends Oauth2Scheme {
       if (data && data.logout_token) {
         this.$auth.$storage.setUniversal(this.logoutTokenKey, data.logout_token)
       }
+      return false
     } catch (error) {
       const { status, data } = error.response || {}
       if (status === 403 && /anonymous users/i.test((data || {}).message || '')) {
-        return
+        return true
       }
       throw error
     }

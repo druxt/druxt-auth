@@ -105,13 +105,32 @@ describe('DrupalScheme', () => {
     ).rejects.toThrow('unrecognized')
   })
 
-  test('an existing Drupal session carries on to oauth2', async () => {
+  test('an existing Drupal session refuses the credentials rather than reusing it', async () => {
+    // Drupal answers 403 when a session is already open, and that session is
+    // whoever left it there. Carrying on would issue a token for them, so on
+    // a shared browser the next person signs in as the last one.
     $auth.request.mockRejectedValueOnce(
       httpError(403, 'This route can only be accessed by anonymous users.')
     )
-    expect(
-      await scheme().login({ credentials: { name: 'editor', pass: 'secret' } })
-    ).toStrictEqual({ oauth2: 'login', options: {} })
+    await expect(
+      scheme().login({ credentials: { name: 'editor', pass: 'secret' } })
+    ).rejects.toThrow(/already open/i)
+  })
+
+  test('and the authorize step never runs, so no token is issued', async () => {
+    $auth.request.mockRejectedValueOnce(
+      httpError(403, 'This route can only be accessed by anonymous users.')
+    )
+    const s = scheme()
+    const authorize = jest.spyOn(
+      Object.getPrototypeOf(Object.getPrototypeOf(s)),
+      'login'
+    )
+    await s
+      .login({ credentials: { name: 'editor', pass: 'secret' } })
+      .catch(() => {})
+    expect(authorize).not.toHaveBeenCalled()
+    authorize.mockRestore()
   })
 
   test('a blocked account is an error', async () => {
