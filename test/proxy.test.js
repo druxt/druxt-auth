@@ -53,6 +53,13 @@ describe('The proxy entries', () => {
     expect(proxied('GET', '/oauth/userinfo')).toBe(true)
   })
 
+  test('carry the CSRF token fetch a foreign session logout needs', () => {
+    // endForeignSession() reads /session/token same-origin before it can
+    // call a site's sessionLogout route. Without the proxy, the fetch 404s
+    // on the site and the sign-in is refused as a session in use.
+    expect(proxied('GET', '/session/token')).toBe(true)
+  })
+
   test('carry the token exchange, which the browser makes', () => {
     // Without this the browser posts to Drupal's own origin, which it
     // cannot reach when that origin is private: the normal decoupled shape.

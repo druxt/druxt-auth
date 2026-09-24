@@ -25,4 +25,8 @@ export const proxyEntries = (baseUrl) => [
   // The browser exchanges the code for a token, so this has to answer on
   // the site's origin too. Drupal's is usually private.
   ['/oauth/token', { target: baseUrl }],
+  // Ending a session this module did not open needs Drupal's CSRF token,
+  // fetched same-origin. Without the proxy, that fetch 404s on the site and
+  // the documented `sessionLogout` route is never reached.
+  ['/session/token', { target: baseUrl }],
 ]

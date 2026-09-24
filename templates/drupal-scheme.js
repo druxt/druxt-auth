@@ -11,8 +11,9 @@ import { Oauth2Scheme } from '~auth/runtime'
  *
  * The session cookie has to reach the authorize request, so both must be on
  * one origin. `druxt: { proxy: { api: true } }` arranges it: the module
- * proxies `/user/login`, `/user/logout`, `/user/password`, `/oauth/authorize`
- * and `/oauth/token`, and points the `authorization` endpoint at the site.
+ * proxies `/user/login`, `/user/logout`, `/user/password`, `/oauth/authorize`,
+ * `/oauth/token` and `/session/token`, and points the `authorization` endpoint
+ * at the site.
  * The login path is proxied for POST alone, so a login page at that path
  * still renders. Without credentials, `login()` is `oauth2`'s own.
  */
