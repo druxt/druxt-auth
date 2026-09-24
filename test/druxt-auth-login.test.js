@@ -57,13 +57,20 @@ describe('What the strategy can do', () => {
 })
 
 describe('Reading a failure', () => {
-  test('an existing session is not a failure a reader can act on', () => {
-    // The scheme carries on regardless, so surfacing this would be noise.
+  test('an existing session tells the reader to sign out of it', () => {
+    // The scheme refuses these credentials rather than sign the reader in as
+    // whoever left that session, so there is something to act on.
     expect(
       readError(
         fail(403, 'This route can only be accessed by anonymous users.')
       )
-    ).toBeNull()
+    ).toMatch(/already open/i)
+    // The scheme flags the refusal rather than relying on its wording: there
+    // is no response to read a status from, and the message is not a
+    // contract the form should match on.
+    const refused = new Error('anything at all')
+    refused.sessionInUse = true
+    expect(readError(refused)).toMatch(/already open/i)
   })
 
   test('an unknown account and a flooded one read the same', () => {
@@ -314,7 +321,7 @@ describe('Signing in', () => {
     expect(context.$emit).toHaveBeenCalledWith('error', context.error)
   })
 
-  test('stays quiet when the failure is only an existing session', async () => {
+  test('reports an existing session, which the reader has to clear', async () => {
     const context = vm({
       $auth: {
         loginWith: jest.fn(() =>
@@ -330,8 +337,8 @@ describe('Signing in', () => {
       },
     })
     await submit.call(context)
-    expect(context.error).toBeNull()
-    expect(context.$emit).not.toHaveBeenCalledWith('error', expect.anything())
+    expect(context.error).toMatch(/already open/i)
+    expect(context.$emit).toHaveBeenCalledWith('error', context.error)
   })
 
   test('ignores a second submit while one is in flight', async () => {

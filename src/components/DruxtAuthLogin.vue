@@ -160,10 +160,14 @@ export default {
       const status = response.status
       const message = ((response.data || {}).message || '').toString()
 
-      // A session already exists. The scheme carries on, and a reader has
-      // nothing to act on.
-      if (status === 403 && /anonymous users/i.test(message)) {
-        return null
+      // A Drupal session is already open, so the scheme refused these
+      // credentials rather than sign the reader in as whoever left it. That
+      // is the one case where the reader has something to do about it.
+      if (
+        (error || {}).sessionInUse ||
+        (status === 403 && /anonymous users/i.test(message))
+      ) {
+        return 'A Drupal session is already open in this browser. Sign out of it first.'
       }
 
       // The credentials were right and the authorisation was refused. Saying
