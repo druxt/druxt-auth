@@ -8,35 +8,22 @@ useDefault = true
 
 [[allowlists]]
 description = """
-example/.env carries the OAuth client_id of the example's local Drupal
-consumer. A public PKCE client's id is not a credential: it travels in the
-browser's authorize URL by design, and the example's consumer is
-non-confidential, so no secret sits alongside it. gitleaks flags it on
-entropy alone.
+example/.env and the end-to-end job name the client ids of the example's two
+consumers, and the secret of the confidential one. A client id is not a
+credential: RFC 6749 calls it public, and it travels in the browser's
+authorize URL by design. The secret is a fixed placeholder for a consumer the
+example provisions from scratch, with that literal value, on a Drupal that
+exists nowhere else, so the example runs without configuration.
 
-Scoped by path and to the one rule that fires. Any other detector still
-reports this file, and generic-api-key still reports every other file.
-
-This replaces per-commit fingerprints in .gitleaksignore. A fingerprint names
-one commit, the same value sits in several, and which of them a scan reaches
-depends on the clone depth, so the check passed or failed by accident.
-"""
-targetRules = ["generic-api-key"]
-paths = ['''^example/\.env$''']
-
-[[allowlists]]
-description = """
-The end-to-end job names the client_id of the two consumers it provisions
-from scratch on every run. A client_id is not a credential: RFC 6749 calls it
-public, and it travels in the browser's authorize URL by design. Neither
-consumer's secret is committed.
-
-Scoped to the two literal values rather than to the file. .gitlab-ci.yml is
-exactly where a real credential would get pasted, so every other value in it
-is still reported, including one pasted onto these same two lines.
+Scoped to the three literal values rather than to any file. A whole-file
+exemption would let a real secret pasted into example/.env pass unreported,
+and generic-api-key is the rule that usually fires, with no canary of its
+own. Every other value in these files is still reported, including one
+pasted onto these same lines.
 """
 targetRules = ["generic-api-key"]
 regexes = [
   '''d428854d-7d89-4756-816f-3ab1ddf7dd36''',
   '''6f2a1c40-98e3-4a2b-9c71-5d0e8b4f3a19''',
+  '''druxt-password-secret''',
 ]
