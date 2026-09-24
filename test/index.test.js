@@ -241,6 +241,18 @@ describe('The password grant token request', () => {
     expect(posted).toBe(0)
   })
 
+  test.each(['toString', 'constructor', '__proto__', 'hasOwnProperty'])(
+    'an inherited property name is refused like any other grant: %s',
+    async (grant) => {
+      // A plain object would resolve these to a truthy value from its
+      // prototype, passing the refusal and failing later as a bare 500.
+      const { next, posted } = await refusalFor({ grant_type: grant })
+      expect(next).toHaveBeenCalledWith(expect.any(Error))
+      expect(next.mock.calls[0][0].message).toMatch(/grant type/i)
+      expect(posted).toBe(0)
+    }
+  )
+
   test('fields the named grant does not take are dropped', async () => {
     const body = await postedBody(
       { clientSecret: 'shh' },

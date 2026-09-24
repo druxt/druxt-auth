@@ -173,11 +173,14 @@ const NuxtModule = function (moduleOptions = {}) {
         // takes. The request carries a confidential consumer's secret, so a
         // grant this does not name would have that secret attached to
         // whatever the caller asked for instead.
-        const grantFields = {
-          password: ['username', 'password', 'scope'],
-          refresh_token: ['refresh_token', 'scope'],
-        }
-        const fields = grantFields[data.grant_type]
+        // A Map, not an object: a plain object resolves inherited names like
+        // `toString` or `constructor` to a truthy value, and a caller names
+        // the grant.
+        const grantFields = new Map([
+          ['password', ['username', 'password', 'scope']],
+          ['refresh_token', ['refresh_token', 'scope']],
+        ])
+        const fields = grantFields.get(data.grant_type)
         if (!fields) {
           return next(new Error('Unsupported grant type'))
         }
