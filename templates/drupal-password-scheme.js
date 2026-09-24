@@ -60,15 +60,20 @@ export default class DrupalPasswordScheme extends withDrupalSession(
    * @param {object} endpoint - The request, with `data.username` and
    *   `data.password`, as `loginWith` passes it.
    */
-  async login (endpoint = {}, options) {
+  async login (endpoint = {}, options = {}) {
     if (!this.options.session) return super.login(endpoint, options)
+
+    // The refresh scheme resets before it requests. Done here instead, ahead
+    // of the session opening, so the reset ends a session left from before
+    // and never the one about to be opened for this sign-in.
+    if (options.reset !== false) this.reset({ resetInterceptor: false })
 
     const { username, password } = (endpoint || {}).data || {}
     // The grant names the fields `username` and `password`; Drupal's JSON
     // login names them `name` and `pass`. The caller sends the grant's.
     await this.openSession({ name: username, pass: password })
     try {
-      return await super.login(endpoint, options)
+      return await super.login(endpoint, { ...options, reset: false })
     } catch (error) {
       // Left open, the session outlives a sign-in the frontend reports as
       // failed, and the next person at this browser reaches Drupal's pages

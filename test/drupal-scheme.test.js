@@ -145,6 +145,20 @@ describe('DrupalScheme', () => {
     expect(storage['drupal-authorization_code.logout_token']).toBeUndefined()
   })
 
+  test('resetting the strategy ends the Drupal session it opened', async () => {
+    storage['drupal-authorization_code.logout_token'] = 'logout-123'
+    $auth.request.mockResolvedValueOnce({ data: {} })
+    scheme().reset()
+    await new Promise((resolve) => setImmediate(resolve))
+    expect($auth.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: '/user/logout?_format=json',
+        params: { token: 'logout-123' },
+      })
+    )
+    expect(storage['drupal-authorization_code.logout_token']).toBeUndefined()
+  })
+
   test('a session this scheme opened is ended, then the sign in retried', async () => {
     // Two cases, one path. An authorisation the visitor abandoned leaves our
     // own session behind, and refusing it would lock them out until they

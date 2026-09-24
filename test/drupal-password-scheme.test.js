@@ -108,7 +108,7 @@ describe('DrupalPasswordScheme', () => {
     })
     expect(storage['drupal-password.logout_token']).toBe('logout-123')
     expect(grant).toHaveBeenCalledTimes(1)
-    expect(grant).toHaveBeenCalledWith(credentials, undefined)
+    expect(grant).toHaveBeenCalledWith(credentials, { reset: false })
   })
 
   test('wrong credentials fail at the session, so the grant is never asked', async () => {
@@ -187,6 +187,64 @@ describe('DrupalPasswordScheme', () => {
       token: 'logout-123',
     })
     expect(storage['drupal-password.logout_token']).toBeUndefined()
+  })
+
+  test('a sign-in resets first, ending a session left behind, then opens its own', async () => {
+    // The refresh scheme resets before it requests. Left to it, the reset
+    // would run after the session opened and end that one. So the scheme
+    // resets first, and hands the grant reset: false.
+    storage['drupal-password.logout_token'] = 'logout-old'
+    $auth.request
+      .mockResolvedValueOnce({ data: {} })
+      .mockResolvedValueOnce(loginResponse('logout-new'))
+    const s = scheme({ session: true })
+    await s.login(credentials)
+    expect(s.resets).toBe(1)
+    expect(s.lastReset).toStrictEqual({ resetInterceptor: false })
+    expect($auth.request.mock.calls.map((c) => c[0].url)).toEqual([
+      '/user/logout?_format=json',
+      '/user/login?_format=json',
+    ])
+    expect($auth.request.mock.calls[0][0].params).toStrictEqual({
+      token: 'logout-old',
+    })
+    expect(storage['drupal-password.logout_token']).toBe('logout-new')
+    expect(grant).toHaveBeenCalledWith(credentials, { reset: false })
+  })
+
+  test('with the session off, the reset is left to the refresh scheme', async () => {
+    const s = scheme()
+    await s.login(credentials)
+    expect(s.resets).toBeUndefined()
+    expect(grant).toHaveBeenCalledWith(credentials, undefined)
+  })
+
+  test('resetting the strategy ends the Drupal session it opened', async () => {
+    // Refresh expiry and a strategy switch reset without calling logout().
+    storage['drupal-password.logout_token'] = 'logout-123'
+    $auth.request.mockResolvedValueOnce({ data: {} })
+    scheme({ session: true }).reset()
+    await new Promise((resolve) => setImmediate(resolve))
+    expect($auth.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: '/user/logout?_format=json',
+        params: { token: 'logout-123' },
+      })
+    )
+    expect(storage['drupal-password.logout_token']).toBeUndefined()
+  })
+
+  test('an unset logout endpoint fails naming it, when there is a session to end', async () => {
+    storage['drupal-password.logout_token'] = 'logout-123'
+    await expect(
+      scheme({ session: true, endpoints: { drupalLogout: null } }).logout()
+    ).rejects.toThrow('drupalLogout endpoint is not set')
+    expect($auth.request).not.toHaveBeenCalled()
+  })
+
+  test('with no session held, an unset logout endpoint is never reached', async () => {
+    await scheme({ endpoints: { drupalLogout: null } }).logout()
+    expect($auth.request).not.toHaveBeenCalled()
   })
 
   test('signing out ends the Drupal session this scheme opened, then the grant', async () => {

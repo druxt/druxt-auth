@@ -53,6 +53,20 @@ export const withDrupalSession = (Base) =>
     }
 
     /**
+     * Ends the Drupal session when auth-next resets this strategy.
+     *
+     * A reset runs when the refresh token expires, when the app switches
+     * strategies, and at the start of a sign-in. None of those call
+     * `logout()`, and a Drupal session left behind signs the next person at
+     * this browser into Drupal's pages as this one. Best effort: reset is
+     * synchronous, so the request is sent and not awaited.
+     */
+    reset (...args) {
+      this.drupalLogout().catch(() => {})
+      return super.reset(...args)
+    }
+
+    /**
      * Opens a Drupal session with credentials, refusing one that is not ours.
      *
      * Drupal refuses a second sign-in while a session is open, and that
@@ -144,11 +158,14 @@ export const withDrupalSession = (Base) =>
       const token = this.$auth.$storage.getUniversal(this.logoutTokenKey)
       if (!token) return false
 
+      // Resolved before the try: an unset endpoint is a configuration error
+      // and should say so, not read as a session that could not be ended.
+      const url = this.endpointOf('drupalLogout')
       try {
         await this.$auth.request({
           method: 'post',
           baseURL: '',
-          url: this.options.endpoints.drupalLogout,
+          url,
           params: { token },
           withCredentials: true,
         })

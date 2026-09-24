@@ -20,6 +20,11 @@ export class Oauth2Scheme {
     return { oauth2: 'login', options }
   }
 
+  reset(options) {
+    this.resets = (this.resets || 0) + 1
+    this.lastReset = options
+  }
+
   logout() {
     return { oauth2: 'logout' }
   }
@@ -36,6 +41,11 @@ export class RefreshScheme {
 
   login(endpoint, options) {
     return { refresh: 'login', endpoint, options }
+  }
+
+  reset(options) {
+    this.resets = (this.resets || 0) + 1
+    this.lastReset = options
   }
 
   logout() {
