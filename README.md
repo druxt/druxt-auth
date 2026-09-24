@@ -85,7 +85,7 @@ _Note:_ replace `[DRUPAL_CONSUMER_CLIENT_ID]` and `[DRUPAL_CONSUMER_SECRET]` wit
        is what DruxtAuth does unless the `scope` option is set_
      - Redirect URI: `[FRONTEND_URL]/callback` (e.g., `http://localhost:3000/callback`)
 
-   - **Password** grant (deprecated, removed in 1.0.0):
+   - **Password** grant (needs the `simple_oauth_password_grant` module):
      - New Secret: _provide a secure secret_
      - Is Confidential: _checked_
      - Redirect URI: `[FRONTEND_URL]/callback` (e.g., `http://localhost:3000/callback`)
