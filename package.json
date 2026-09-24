@@ -43,6 +43,8 @@
     "lint:prose": "PROSE_LINT_GLOB='!{.changeset/**,example/drupal/**,CHANGELOG.md}' bash .gitlab/scripts/lint-prose.sh --all",
     "lint:prose:install": "bash .gitlab/scripts/install-vale.sh .vale/bin .vale/styles",
     "prepare": "node scripts/prepare.mjs",
+    "release:check": "node scripts/release/check.mjs",
+    "release:check:test": "node --test scripts/release/test/*.test.mjs",
     "test": "jest",
     "test:watch": "jest --watch"
   },
@@ -69,6 +71,7 @@
     "knip": "2.43.0",
     "markdownlint-cli2": "0.10.0",
     "prettier": "3.3.3",
+    "semver": "^7.3.7",
     "siroc": "0.16.0",
     "vue-jest": "3.0.7",
     "vue-template-compiler": "^2.7.14"

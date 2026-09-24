@@ -16,6 +16,10 @@
     // point because it is a separate package.
     "druxt",
     // The Babel bridge siroc needs for the Vue 2 build.
-    "babel-core"
+    "babel-core",
+    // Installed by hand for test/e2e, which is a manual tool and runs in no
+    // pipeline. See test/e2e/README.md. Declaring it would put a browser
+    // toolchain in every install for a script CI never runs.
+    "playwright"
   ]
 }
