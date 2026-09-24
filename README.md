@@ -1,9 +1,4 @@
-<!-- vale off -->
-<!-- The alt text describes what the banner shows: the druxt-auth mark, name and description. The name-colon-description form trips ColonUsage. -->
-<a href="https://druxtjs.org">
-  <img src=".github/banner.svg" alt="druxt-auth: Authentication module for DruxtJS">
-</a>
-<!-- vale on -->
+<img src="https://github.com/druxt/druxt-auth/raw/develop/.github/banner.svg" alt="DruxtAuth signs visitors in to Drupal with Simple OAuth">
 
 # DruxtAuth
 
