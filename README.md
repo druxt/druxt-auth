@@ -195,6 +195,23 @@ It adds two auth strategies that can be used via the `$auth` plugin:
   A Consumer cannot be public and confidential at once, so a site running both
   this and the browser flow needs two: set `passwordClientId` to the second.
 
+  The grant issues a token and no Drupal session, so Drupal's own pages stay
+  anonymous under it, however signed in the frontend looks. A site that proxies
+  those pages, for the admin UI or an editor's forms, sets `passwordSession`:
+
+  ```js
+  druxt: {
+    auth: { clientId: '...', passwordClientId: '...', passwordSession: true },
+    proxy: { api: true },
+  }
+  ```
+
+  The sign-in then opens a Drupal session through the proxied `/user/login`
+  with the same credentials, before the grant, and `logout()` ends both. It
+  needs `/user/login` reaching Drupal on the site's origin, which the proxy
+  provides. Off by default: a frontend that talks to the API alone has no use
+  for the session or the request.
+
 - See the **nuxt/auth** documentation form more details: https://auth.nuxtjs.org/api/auth
 
 ## Sessions

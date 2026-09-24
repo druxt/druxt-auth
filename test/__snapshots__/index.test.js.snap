@@ -46,7 +46,8 @@ Object {
         "maxAge": 2592000,
         "property": "refresh_token",
       },
-      "scheme": "refresh",
+      "scheme": "<druxt-auth>/templates/drupal-password-scheme.js",
+      "session": false,
       "token": Object {
         "maxAge": 31536000,
         "name": "Authorization",
@@ -107,7 +108,8 @@ Object {
         "maxAge": 2592000,
         "property": "refresh_token",
       },
-      "scheme": "refresh",
+      "scheme": "<druxt-auth>/templates/drupal-password-scheme.js",
+      "session": false,
       "token": Object {
         "maxAge": 31536000,
         "name": "Authorization",
@@ -168,7 +170,8 @@ Object {
         "maxAge": 2592000,
         "property": "refresh_token",
       },
-      "scheme": "refresh",
+      "scheme": "<druxt-auth>/templates/drupal-password-scheme.js",
+      "session": false,
       "token": Object {
         "maxAge": 31536000,
         "name": "Authorization",
@@ -228,7 +231,8 @@ Object {
         "maxAge": 2592000,
         "property": "refresh_token",
       },
-      "scheme": "refresh",
+      "scheme": "<druxt-auth>/templates/drupal-password-scheme.js",
+      "session": false,
       "token": Object {
         "maxAge": 31536000,
         "name": "Authorization",
