@@ -23,11 +23,29 @@ const DEFAULTS = {
   endpoints: { ...SESSION_ENDPOINTS },
 }
 
+/** Earlier layers win, as the runtime's own merge has it. */
+const merge = (...layers) =>
+  layers.reduce(
+    (all, layer) => ({
+      ...(layer || {}),
+      ...all,
+      endpoints: {
+        ...((layer || {}).endpoints || {}),
+        ...(all.endpoints || {}),
+      },
+    }),
+    {}
+  )
+
 export default class DrupalPasswordScheme extends withDrupalSession(
   RefreshScheme
 ) {
   constructor ($auth, options, ...defaults) {
-    super($auth, options, ...defaults, DEFAULTS)
+    // RefreshScheme takes no defaults from its callers, unlike Oauth2Scheme,
+    // and drops any it is handed. Handed these the way DrupalScheme hands
+    // its own, they never arrived, and the session step posted to the root.
+    // So they are merged in here first, the strategy's config winning.
+    super($auth, merge(options, ...defaults, DEFAULTS))
   }
 
   /**

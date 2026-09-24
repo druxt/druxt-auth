@@ -26,9 +26,11 @@ export class Oauth2Scheme {
 }
 
 export class RefreshScheme {
-  constructor($auth, options, ...defaults) {
+  // The real one takes ($auth, options) and drops anything more, unlike
+  // Oauth2Scheme. A mock that accepted more hid a scheme that relied on it.
+  constructor($auth, options) {
     this.$auth = $auth
-    this.options = merge(options, defaults)
+    this.options = merge(options, [])
     this.name = this.options.name
   }
 

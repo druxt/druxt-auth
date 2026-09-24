@@ -55,6 +55,34 @@ describe('DrupalPasswordScheme', () => {
     expect(s.logoutTokenKey).toBe('drupal-password.logout_token')
   })
 
+  test('keeps the session endpoints under the endpoints the module configures', () => {
+    // The module hands the strategy its own endpoints object. RefreshScheme
+    // drops any defaults its callers pass, so unless these are merged first
+    // the session step has no URL and posts to the site's root.
+    const s = scheme({
+      endpoints: {
+        token: 'https://drupal.test/oauth/token',
+        login: { baseURL: '', url: '/_auth/drupal-password/token' },
+        logout: false,
+        refresh: { baseURL: '', url: '/_auth/drupal-password/token' },
+        user: { url: '/oauth/userinfo', method: 'post' },
+      },
+    })
+    expect(s.options.endpoints.login.url).toBe('/_auth/drupal-password/token')
+    expect(s.options.endpoints.drupalLogin).toBe('/user/login?_format=json')
+    expect(s.options.endpoints.drupalLogout).toBe('/user/logout?_format=json')
+  })
+
+  test('a missing login endpoint fails naming it, rather than posting to the root', async () => {
+    await expect(
+      scheme({ session: true, endpoints: { drupalLogin: null } }).login(
+        credentials
+      )
+    ).rejects.toThrow('drupalLogin endpoint is not set')
+    expect($auth.request).not.toHaveBeenCalled()
+    expect(grant).not.toHaveBeenCalled()
+  })
+
   test('without a session, the grant is the refresh scheme and nothing else', async () => {
     const result = await scheme().login(credentials)
     expect($auth.request).not.toHaveBeenCalled()

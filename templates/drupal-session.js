@@ -38,6 +38,21 @@ export const withDrupalSession = (Base) =>
     }
 
     /**
+     * The endpoint named, or a failure that names it. Unset, the request
+     * would go to the site's root and fail as the site being unreachable,
+     * which points away from the configuration that is actually missing.
+     */
+    endpointOf (name) {
+      const url = this.options.endpoints[name]
+      if (!url) {
+        throw new Error(
+          `The ${name} endpoint is not set on the ${this.name} strategy.`
+        )
+      }
+      return url
+    }
+
+    /**
      * Opens a Drupal session with credentials, refusing one that is not ours.
      *
      * Drupal refuses a second sign-in while a session is open, and that
@@ -89,7 +104,7 @@ export const withDrupalSession = (Base) =>
         ;({ data } = await this.$auth.request({
           method: 'post',
           baseURL: '',
-          url: this.options.endpoints.drupalLogin,
+          url: this.endpointOf('drupalLogin'),
           data: { name, pass },
           withCredentials: true,
         }))
@@ -200,7 +215,7 @@ export const withDrupalSession = (Base) =>
       await this.$auth.request({
         method: 'post',
         baseURL: '',
-        url: this.options.endpoints.passwordReset,
+        url: this.endpointOf('passwordReset'),
         data: { [identifier]: value },
         withCredentials: true,
       })
