@@ -94,6 +94,29 @@ describe('Whether a request was bound for the backend', () => {
     ).toBe(false)
   })
 
+  test('a protocol-relative URL is refused, it names another origin', () => {
+    expect(
+      targetsBackend({ url: '//evil.test/collect' }, on('https://cms'))
+    ).toBe(false)
+  })
+
+  test('a per-request baseURL to another origin does not make it the backend', () => {
+    // The instance's backend is the trusted origin; a request cannot redirect
+    // the token elsewhere by setting its own baseURL.
+    expect(
+      targetsBackend(
+        { url: '/x', baseURL: 'https://evil.test' },
+        on('https://cms')
+      )
+    ).toBe(false)
+  })
+
+  test('a per-request baseURL that is the backend is fine', () => {
+    expect(
+      targetsBackend({ url: '/x', baseURL: 'https://cms' }, on('https://cms'))
+    ).toBe(true)
+  })
+
   test('an absolute URL is refused when the proxy leaves the base relative', () => {
     // Proxied: the instance base is '' and everything is same-origin by path.
     // An absolute URL has no base to match, so it is refused rather than

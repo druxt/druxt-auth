@@ -62,16 +62,33 @@ export const WINDOW = 30000
  */
 export const targetsBackend = (config, instance) => {
   const url = (config || {}).url || ''
-  const absolute = /^[a-z][a-z0-9+.-]*:\/\//i.test(url)
-  if (!absolute) return true
-  const base =
-    (config || {}).baseURL || ((instance || {}).defaults || {}).baseURL || ''
-  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(base)) return false
-  try {
-    return new URL(url).origin === new URL(base).origin
-  } catch (error) {
-    return false
+  const isAbsolute = (u) => /^[a-z][a-z0-9+.-]*:\/\//i.test(u)
+  const sameOrigin = (a, b) => {
+    try {
+      return new URL(a).origin === new URL(b).origin
+    } catch (error) {
+      return false
+    }
   }
+  // The origin the token is safe on: the instance's configured backend, never
+  // a per-request baseURL, which the caller could point elsewhere.
+  const backend = ((instance || {}).defaults || {}).baseURL || ''
+
+  // A protocol-relative `//host/...` names another origin while looking
+  // path-like, so it is treated as absolute, not relative.
+  if (/^\/\//.test(url)) return false
+
+  if (isAbsolute(url)) {
+    return isAbsolute(backend) && sameOrigin(url, backend)
+  }
+
+  // A relative URL goes to the request's baseURL when it sets one, else the
+  // instance's. Either must be the backend for the token to travel with it.
+  const base = (config || {}).baseURL
+  if (base) {
+    return isAbsolute(base) ? sameOrigin(base, backend) : base === backend
+  }
+  return true
 }
 
 export const shouldRefresh = (error, session = {}) => {
