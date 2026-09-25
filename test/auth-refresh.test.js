@@ -228,3 +228,37 @@ describe('Recovering', () => {
     expect(context.$auth.refreshTokens).toHaveBeenCalled()
   })
 })
+
+describe('Attaching the interceptor', () => {
+  afterEach(() => {
+    delete window.onNuxtReady
+  })
+
+  const spy = () => ({
+    interceptors: { response: { use: jest.fn() } },
+    request: jest.fn(),
+  })
+
+  test('waits for onNuxtReady, so a druxt injected after this plugin is still intercepted', () => {
+    // The failure this guards: a site whose plugin order puts druxt after
+    // druxt-auth. Attaching eagerly would find no `$druxt` and no-op silently.
+    let ready
+    window.onNuxtReady = (cb) => {
+      ready = cb
+    }
+    const druxtAxios = spy()
+    const context = {}
+    plugin(context)
+    expect(druxtAxios.interceptors.response.use).not.toHaveBeenCalled()
+
+    context.$druxt = { axios: druxtAxios } // druxt injects late
+    ready()
+    expect(druxtAxios.interceptors.response.use).toHaveBeenCalledTimes(1)
+  })
+
+  test('attaches at once when there is no onNuxtReady, as under test or SSR', () => {
+    const druxtAxios = spy()
+    plugin({ $druxt: { axios: druxtAxios } })
+    expect(druxtAxios.interceptors.response.use).toHaveBeenCalledTimes(1)
+  })
+})

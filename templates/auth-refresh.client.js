@@ -146,8 +146,22 @@ export default function (context) {
     })
   }
 
-  const { $axios, $druxt } = context
-  const druxtAxios = ($druxt || {}).axios
-  attach(druxtAxios)
-  if ($axios && $axios !== druxtAxios) attach($axios)
+  const setup = () => {
+    const { $axios, $druxt } = context
+    const druxtAxios = ($druxt || {}).axios
+    attach(druxtAxios)
+    if ($axios && $axios !== druxtAxios) attach($axios)
+  }
+
+  // Attach once every plugin has injected. A site that registers druxt after
+  // this plugin would otherwise reach here with `context.$druxt` still
+  // undefined, and `attach(undefined)` is a silent no-op, so druxt's axios
+  // would never be intercepted. `onNuxtReady` is the client signal that all
+  // plugins have mounted, and requests come after it. Without it, in a test
+  // or SSR, attach at once.
+  if (typeof window !== 'undefined' && window.onNuxtReady) {
+    window.onNuxtReady(setup)
+  } else {
+    setup()
+  }
 }
