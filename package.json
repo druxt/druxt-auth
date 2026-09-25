@@ -83,7 +83,7 @@
     "jest-junit": "^14.0.1",
     "knip": "2.43.0",
     "markdownlint-cli2": "0.10.0",
-    "playwright": "1.44.1",
+    "playwright": "1.55.1",
     "prettier": "3.3.3",
     "semver": "^7.3.7",
     "siroc": "0.16.0",
