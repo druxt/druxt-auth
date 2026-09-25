@@ -68,13 +68,20 @@ export default class DrupalPasswordScheme extends withDrupalSession(
     // The grant names the fields `username` and `password`; Drupal's JSON
     // login names them `name` and `pass`. The caller sends the grant's.
     await this.openSession({ name: username, pass: password })
+    // The token this sign-in just opened. A concurrent sign-in can replace it
+    // before the grant returns, and the cleanup below must end this session,
+    // not that one.
+    const opened = this.$auth.$storage.getUniversal(this.logoutTokenKey)
     try {
       return await super.login(endpoint, { ...(options || {}), reset: false })
     } catch (error) {
       // Left open, the session outlives a sign-in the frontend reports as
       // failed, and the next person at this browser reaches Drupal's pages
-      // signed in as this one, with nothing to tell either of them.
-      await this.drupalLogout()
+      // signed in as this one. Skipped when another sign-in has taken over
+      // the token, whose session is not this one's to end.
+      if (this.$auth.$storage.getUniversal(this.logoutTokenKey) === opened) {
+        await this.drupalLogout()
+      }
       throw error
     }
   }

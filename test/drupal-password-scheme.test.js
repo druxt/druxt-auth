@@ -211,6 +211,26 @@ describe('DrupalPasswordScheme', () => {
     expect(storage['drupal-password.logout_token']).toBe('logout-new')
   })
 
+  test('a grant refused after a concurrent sign-in took over does not end that session', async () => {
+    // Two session sign-ins in one browser. A opens its session, B replaces
+    // the token, then A's grant fails. A must not log out B's live session.
+    // openSession stores logout-A; B takes over the token during A's grant.
+    $auth.request.mockResolvedValueOnce(loginResponse('logout-A'))
+    grant.mockImplementationOnce(() => {
+      storage['drupal-password.logout_token'] = 'logout-B'
+      throw new Error('invalid_grant')
+    })
+
+    await expect(scheme({ session: true }).login(credentials)).rejects.toThrow(
+      'invalid_grant'
+    )
+
+    expect($auth.request.mock.calls.map((c) => c[0].url)).toEqual([
+      '/user/login?_format=json',
+    ])
+    expect(storage['drupal-password.logout_token']).toBe('logout-B')
+  })
+
   test('a grant refused after the session opened ends the session again', async () => {
     // Otherwise the session outlives a sign-in the frontend reports as
     // failed, and the next person at this browser is signed into Drupal's
