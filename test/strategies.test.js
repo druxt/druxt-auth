@@ -41,7 +41,7 @@ describe("A site's strategy entry", () => {
     expect(s.clientId).toBe('mock-client-id')
     expect(s.codeChallengeMethod).toBe('S256')
     expect(s.endpoints.authorization).toBe(`${baseUrl}/oauth/authorize`)
-    expect(s.endpoints.token).toBe(`${baseUrl}/oauth/token`)
+    expect(s.endpoints.token).toBe('/oauth/token')
   })
 
   test('wins on any key it names, at the top level and one level down', () => {
