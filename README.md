@@ -317,6 +317,35 @@ export default {
 </script>
 ```
 
+## Saving a user signs them out
+
+Drupal revokes a user's access tokens whenever that user is saved, so an
+editor who edits their own profile returns to a site that believes it is
+signed in and is refused every request. `simple_oauth_user_update()` calls
+`TokenExpiryTriggerHandler::handleUserUpdate()` with nothing gating it, and
+Simple OAuth 6.1.1 has no setting for it.
+
+The module recovers from it, with no configuration. Only access tokens are
+revoked, so the refresh token is still in the browser, and one 401 buys one
+refresh and one replay of the request.
+
+A burst costs one refresh, not one each. Requests that fail at the same
+moment share the refresh in flight, and a request refused in the few seconds
+after a refresh succeeded is retried with the token that refresh produced.
+Both halves matter, because each refresh rotates the tokens and revokes what
+the one before it issued.
+
+Where the refresh also fails, the original answer reaches the caller, since
+that is a real sign out. Where a backend revokes continuously, the site stops
+trying after three refreshes in thirty seconds rather than retrying for ever.
+
+Recovery is one refresh per grace window, so revocations arriving faster than
+that are not recovered and those requests are refused. Measured with seven
+saves 120 milliseconds apart. It is transient rather than a sign out: the
+session stays, and the next request after the window recovers on one refresh.
+
+Upstream this is [drupal.org issue 2946882](https://www.drupal.org/i/2946882).
+
 ## Options
 
 | Option             | Type               | Required | Default       | Description                                                                                                                                                                                                              |

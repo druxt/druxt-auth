@@ -279,6 +279,19 @@ const NuxtModule = function (moduleOptions = {}) {
   // Add required modules.
   this.addModule('@nuxtjs/auth-next')
 
+  // Recover a session whose access tokens Drupal revoked. Saving a user
+  // revokes that user's tokens, and nothing on the client notices, because
+  // a token deleted on the server still looks unexpired.
+  this.addPlugin({
+    src: resolve(__dirname, '../templates/auth-refresh.js'),
+    fileName: 'druxt-auth-refresh.js',
+    // Universal, not client-only: a token the backend revoked is answered
+    // with a 401 on the server render too, and only the interceptor recovers
+    // it. Registered client-only, a page load after a revocation signs out.
+    mode: 'all',
+    options,
+  })
+
   // Register the components directory, so a site overrides a component by
   // dropping its own of the same name into `components/`.
   this.nuxt.hook('components:dirs', (dirs) => {

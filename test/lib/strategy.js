@@ -24,6 +24,7 @@ export const strategyOptions = (
   const mock = {
     addModule: jest.fn(),
     addTemplate: jest.fn(),
+    addPlugin: jest.fn(),
     extendRoutes: jest.fn((fn) => fn([], jest.fn())),
     nuxt: { hook: jest.fn() },
     options: {
