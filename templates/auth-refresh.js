@@ -61,7 +61,12 @@ export const shouldRefresh = (error, session = {}) => {
   // site would hang rather than sign out.
   if (session.tokenUrl && config.url === session.tokenUrl) return false
 
-  return Boolean(session.loggedIn && session.hasRefreshToken)
+  // `loggedIn` is the wrong signal on the server: auth-next sets it only
+  // after `fetchUser` succeeds, and `fetchUser` is the request that 401s, so
+  // on a page load it is false for the very request whose recovery would set
+  // it. The refresh token is the credential that matters. On the client the
+  // flag still gates, so a stale refresh cookie does not refresh on every 401.
+  return Boolean((session.loggedIn || session.server) && session.hasRefreshToken)
 }
 
 export default function (context) {
@@ -117,6 +122,7 @@ export default function (context) {
     const token = endpoints.refresh || endpoints.token
     return {
       loggedIn: Boolean($auth && $auth.loggedIn),
+      server: typeof process !== 'undefined' && Boolean(process.server),
       hasRefreshToken: Boolean(refreshToken && refreshToken.get()),
       tokenUrl: typeof token === 'string' ? token : (token || {}).url,
     }

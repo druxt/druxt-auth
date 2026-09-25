@@ -5,7 +5,7 @@ import plugin, {
   LIMIT,
   RETRIED,
   shouldRefresh,
-} from '../templates/auth-refresh.client.js'
+} from '../templates/auth-refresh.js'
 
 const answer = (status, config = {}) => ({ response: { status }, config })
 const signedIn = { loggedIn: true, hasRefreshToken: true }
@@ -42,6 +42,28 @@ describe('Whether an answer is worth refreshing for', () => {
       shouldRefresh(answer(401, { url: 'https://cms/oauth/token' }), session)
     ).toBe(false)
     expect(shouldRefresh(answer(401, { url: '/jsonapi' }), session)).toBe(true)
+  })
+
+  test('a server render refreshes despite loggedIn being false there', () => {
+    // auth-next has not run fetchUser yet, so loggedIn is false during the
+    // render; the refresh token is what says recovery is possible.
+    expect(
+      shouldRefresh(answer(401), {
+        loggedIn: false,
+        hasRefreshToken: true,
+        server: true,
+      })
+    ).toBe(true)
+  })
+
+  test('the client still needs loggedIn, so a stale refresh cookie does not refresh', () => {
+    expect(
+      shouldRefresh(answer(401), {
+        loggedIn: false,
+        hasRefreshToken: true,
+        server: false,
+      })
+    ).toBe(false)
   })
 
   test('a failure with no answer at all is not', () => {
