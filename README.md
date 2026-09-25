@@ -344,8 +344,7 @@ that are not recovered and those requests are refused. Measured with seven
 saves 120 milliseconds apart. It is transient rather than a sign out: the
 session stays, and the next request after the window recovers on one refresh.
 
-Upstream this is [drupal.org issue 2946882](https://www.drupal.org/i/2946882),
-open since 2018, with no merge request targeting 6.1.x.
+Upstream this is [drupal.org issue 2946882](https://www.drupal.org/i/2946882).
 
 ## Options
 

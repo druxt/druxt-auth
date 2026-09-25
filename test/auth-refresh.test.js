@@ -5,6 +5,7 @@ import plugin, {
   LIMIT,
   RETRIED,
   shouldRefresh,
+  targetsBackend,
 } from '../templates/auth-refresh.js'
 
 const answer = (status, config = {}) => ({ response: { status }, config })
@@ -72,6 +73,37 @@ describe('Whether an answer is worth refreshing for', () => {
   })
 })
 
+describe('Whether a request was bound for the backend', () => {
+  const on = (baseURL) => ({ defaults: { baseURL } })
+
+  test('a relative URL is, it resolves against the backend base', () => {
+    expect(
+      targetsBackend({ url: '/jsonapi/node/page' }, on('https://cms'))
+    ).toBe(true)
+  })
+
+  test('an absolute URL to the backend origin is', () => {
+    expect(
+      targetsBackend({ url: 'https://cms/oauth/userinfo' }, on('https://cms'))
+    ).toBe(true)
+  })
+
+  test('an absolute URL to another origin is not, so the token is not disclosed', () => {
+    expect(
+      targetsBackend({ url: 'https://evil.test/collect' }, on('https://cms'))
+    ).toBe(false)
+  })
+
+  test('an absolute URL is refused when the proxy leaves the base relative', () => {
+    // Proxied: the instance base is '' and everything is same-origin by path.
+    // An absolute URL has no base to match, so it is refused rather than
+    // guessed.
+    expect(targetsBackend({ url: 'https://cms/x', baseURL: '' }, on(''))).toBe(
+      false
+    )
+  })
+})
+
 describe('Recovering', () => {
   // Restored here rather than at the end of each test: a restore after the
   // assertions only runs when they all pass, and a failure would otherwise
@@ -102,6 +134,17 @@ describe('Recovering', () => {
     plugin({ $druxt: { axios: instance }, $auth })
     return { instance, $auth, reject: (e) => onRejected(e) }
   }
+
+  test('does not recover a 401 from another origin, so the token is not disclosed', async () => {
+    // The instance has no backend base here, so an absolute URL cannot be
+    // matched to it and recovery is refused rather than replayed with the
+    // Drupal token attached.
+    const { $auth, reject } = setup()
+    await expect(
+      reject(answer(401, { url: 'https://evil.test/collect' }))
+    ).rejects.toBeDefined()
+    expect($auth.refreshTokens).not.toHaveBeenCalled()
+  })
 
   test('refreshes, then replays the request with the new token', async () => {
     const { instance, $auth, reject } = setup()

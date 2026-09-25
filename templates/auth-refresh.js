@@ -5,8 +5,8 @@
  * `simple_oauth_user_update()` calls `TokenExpiryTriggerHandler::handleUserUpdate()`
  * unconditionally, so an editor who edits their own profile comes back to a
  * site that believes it is signed in and is refused every request. Simple
- * OAuth 6.1.1 has no setting for it, and drupal.org issue 2946882 has no
- * merge request targeting 6.1.x.
+ * Simple OAuth revokes on the save with no opt-out, so the frontend has to
+ * recover rather than rely on a backend setting.
  *
  * Only access tokens go. The refresh token survives, so the credential to
  * recover with is already in the browser. The library refreshes a token it
@@ -46,6 +46,34 @@ export const WINDOW = 30000
  * @param {object} session - `{ loggedIn, hasRefreshToken, tokenUrl }`.
  * @returns {boolean}
  */
+/**
+ * Whether a failed request was bound for the backend the token belongs to.
+ *
+ * The interceptor sits on axios instances a site may also use for other
+ * hosts. Recovering a request to another origin would replay it with the
+ * Drupal access token on its `Authorization` header, disclosing the token to
+ * that host. A relative URL resolves against the instance's own backend base,
+ * so it is safe; an absolute URL is only safe when its origin matches that
+ * base.
+ *
+ * @param {object} config - The failed request's axios config.
+ * @param {object} instance - The axios instance that made it.
+ * @returns {boolean}
+ */
+export const targetsBackend = (config, instance) => {
+  const url = (config || {}).url || ''
+  const absolute = /^[a-z][a-z0-9+.-]*:\/\//i.test(url)
+  if (!absolute) return true
+  const base =
+    (config || {}).baseURL || ((instance || {}).defaults || {}).baseURL || ''
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(base)) return false
+  try {
+    return new URL(url).origin === new URL(base).origin
+  } catch (error) {
+    return false
+  }
+}
+
 export const shouldRefresh = (error, session = {}) => {
   const { response, config } = error || {}
 
@@ -132,6 +160,8 @@ export default function (context) {
     if (!instance || !instance.interceptors) return
     instance.interceptors.response.use(undefined, async (error) => {
       if (!shouldRefresh(error, session())) throw error
+      // Never replay another host's request with the Drupal token attached.
+      if (!targetsBackend(error.config, instance)) throw error
 
       try {
         await refresh()
