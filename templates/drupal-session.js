@@ -59,10 +59,16 @@ export const withDrupalSession = (Base) =>
      * strategies, and at the start of a sign-in. None of those call
      * `logout()`, and a Drupal session left behind signs the next person at
      * this browser into Drupal's pages as this one. Best effort: reset is
-     * synchronous, so the request is sent and not awaited.
+     * synchronous, so the request is sent and not awaited. Browser only: the
+     * session cookie is the browser's, and an SSR reset cannot end it.
      */
     reset (...args) {
-      this.drupalLogout().catch(() => {})
+      // Browser only. A Drupal session cookie is the browser's, and ending it
+      // is meaningless from the server. Worse, an SSR reset can send the
+      // logout with no cookie, Drupal answers 403 for the anonymous request, and
+      // drupalLogout reads that 403 as the session already gone and drops the
+      // token while the browser session lives on.
+      if (process.client) this.drupalLogout().catch(() => {})
       return super.reset(...args)
     }
 

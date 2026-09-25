@@ -26,6 +26,9 @@ const credentials = { data: { username: 'editor', password: 'secret' } }
 
 describe('DrupalPasswordScheme', () => {
   beforeEach(() => {
+    // reset() ends the Drupal session only in the browser; the suite runs the
+    // client paths, and one test flips this to assert the SSR guard.
+    process.client = true
     storage = {}
     $auth = {
       request: jest.fn(async () => loginResponse()),
@@ -237,6 +240,17 @@ describe('DrupalPasswordScheme', () => {
     await s.login(credentials)
     expect(s.resets).toBeUndefined()
     expect(grant).toHaveBeenCalledWith(credentials, undefined)
+  })
+
+  test('a reset during SSR does not touch the Drupal session', async () => {
+    // SSR can send the logout with no cookie; Drupal 403s the anonymous request
+    // and drupalLogout would drop the token while the browser session lives.
+    process.client = false
+    storage['drupal-password.logout_token'] = 'logout-123'
+    scheme({ session: true }).reset()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect($auth.request).not.toHaveBeenCalled()
+    expect(storage['drupal-password.logout_token']).toBe('logout-123')
   })
 
   test('resetting the strategy ends the Drupal session it opened', async () => {

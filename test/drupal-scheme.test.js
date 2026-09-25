@@ -19,6 +19,8 @@ const loginResponse = (logoutToken = 'logout-123') => ({
 
 describe('DrupalScheme', () => {
   beforeEach(() => {
+    // reset() ends the Drupal session only in the browser (SSR guard).
+    process.client = true
     storage = {}
     $auth = {
       request: jest.fn(async () => loginResponse()),
