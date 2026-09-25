@@ -8,8 +8,8 @@ let mock
 const portable = (auth) =>
   JSON.parse(
     JSON.stringify(auth).replace(
-      /"[^"]*\/templates\/drupal-scheme\.js"/g,
-      '"<druxt-auth>/templates/drupal-scheme.js"'
+      /"[^"]*\/templates\/(drupal-scheme|drupal-password-scheme)\.js"/g,
+      '"<druxt-auth>/templates/$1.js"'
     )
   )
 

@@ -19,6 +19,8 @@ const loginResponse = (logoutToken = 'logout-123') => ({
 
 describe('DrupalScheme', () => {
   beforeEach(() => {
+    // reset() ends the Drupal session only in the browser (SSR guard).
+    process.client = true
     storage = {}
     $auth = {
       request: jest.fn(async () => loginResponse()),
@@ -142,6 +144,20 @@ describe('DrupalScheme', () => {
       scheme().login({ credentials: { name: 'editor', pass: 'wrong' } })
     ).rejects.toThrow('did not answer with a session')
 
+    expect(storage['drupal-authorization_code.logout_token']).toBeUndefined()
+  })
+
+  test('resetting the strategy ends the Drupal session it opened', async () => {
+    storage['drupal-authorization_code.logout_token'] = 'logout-123'
+    $auth.request.mockResolvedValueOnce({ data: {} })
+    scheme().reset()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect($auth.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: '/user/logout?_format=json',
+        params: { token: 'logout-123' },
+      })
+    )
     expect(storage['drupal-authorization_code.logout_token']).toBeUndefined()
   })
 

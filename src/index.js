@@ -16,6 +16,9 @@ const NuxtModule = function (moduleOptions = {}) {
       // a public one, and a Consumer cannot be public and confidential at
       // once, so a site that uses both points this at the second.
       passwordClientId: undefined,
+      // The password grant issues a token and no Drupal session. A site that
+      // proxies Drupal's own pages needs the session too, and sets this.
+      passwordSession: undefined,
       scope: undefined,
       ...((this.options.druxt || {}).auth || {}),
       ...moduleOptions,
@@ -118,8 +121,10 @@ const NuxtModule = function (moduleOptions = {}) {
 
       // Password grant. Simple OAuth 6 moved it out of core, so the backend
       // needs the simple_oauth_password_grant module for this to answer.
+      // A refresh scheme, plus the Drupal session a site can opt into.
       'drupal-password': {
-        scheme: 'refresh',
+        scheme: resolve(__dirname, '../templates/drupal-password-scheme.js'),
+        session: !!(options.auth || {}).passwordSession,
         token: {
           property: 'access_token',
           type: 'Bearer',
