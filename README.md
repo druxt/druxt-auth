@@ -280,9 +280,6 @@ same origin with the frontend, because the session cookie has to reach
 **Automatically authorize this client** set, or Drupal shows its own consent
 page and the visitor leaves the site.
 
-Style it with your own CSS. Give the inputs a font size of at least 16px at
-coarse pointers, or iOS zooms the page when one takes focus.
-
 The proxy and this page share the `/user/login` path and do not collide. The
 module proxies that path for POST alone, which is what Drupal's JSON login
 answers on, so a GET reaches this page.
