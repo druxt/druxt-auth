@@ -254,6 +254,9 @@ test:e2e:
 secret-detection:
   stage: secret-detection
   image: alpine:3.21
+  # No needs, so a lint failure in an earlier stage cannot skip the scan.
+  # This is the change that vets the allowlist, so it has to run regardless.
+  needs: []
   interruptible: true
   # gitleaks reads git history, and needs nothing this pipeline builds.
   dependencies: []
