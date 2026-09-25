@@ -63,11 +63,11 @@ jobs:
     outputs:
       count: ${{ steps.pending.outputs.count }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .nvmrc
 
@@ -113,7 +113,7 @@ jobs:
             node -p "require('./dev-packages/manifest.json').map((p) => '| ' + p.name + ' | ' + p.version + ' |').join('\n')"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: steps.pending.outputs.count != '0'
         with:
           name: dev-packages
@@ -135,7 +135,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
@@ -144,7 +144,7 @@ jobs:
       - name: Update npm
         run: npm install --global --ignore-scripts npm@11.19.1
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: dev-packages
           path: dev-packages
@@ -179,7 +179,7 @@ jobs:
           app-id: ${{ vars.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           # changesets/action v1 pushes the version branch over git, so the
@@ -187,7 +187,7 @@ jobs:
           # opens the pull request with get run.
           token: ${{ steps.app.outputs.token || github.token }}
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .nvmrc
 
@@ -200,7 +200,7 @@ jobs:
       # Pinned to the v1 line: it pairs with @changesets/cli v2, which is what
       # this package and its Node 16 toolchain run. v2 of the action needs the
       # v3 CLI.
-      - uses: changesets/action@06245a4e0a36c064a573d4150030f5ec548e4fcc # v1.4.10
+      - uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0
         id: changesets
         with:
           version: yarn run version
@@ -243,7 +243,7 @@ jobs:
             node scripts/release/notes.mjs "$tag" > "release-packages/$file.md"
           done
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: steps.unpublished.outputs.list != ''
         with:
           name: release-packages
@@ -261,7 +261,7 @@ jobs:
       id-token: write
       contents: write
     steps:
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
@@ -270,7 +270,7 @@ jobs:
       - name: Update npm
         run: npm install --global --ignore-scripts npm@11.19.1
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: release-packages
           path: release-packages
