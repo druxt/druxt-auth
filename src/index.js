@@ -5,6 +5,35 @@ import { createProxyMiddleware } from 'http-proxy-middleware'
 
 import { proxyEntries } from './proxy'
 
+const isPlainObject = (value) =>
+  !!value && typeof value === 'object' && !Array.isArray(value)
+
+/** Site over base, recursing through plain objects; anything else the site names wins. */
+const extend = (base, over) => {
+  if (!isPlainObject(base) || !isPlainObject(over)) return over
+  const out = { ...base }
+  for (const [key, value] of Object.entries(over))
+    out[key] = extend(base[key], value)
+  return out
+}
+
+/**
+ * A site's entry for a built-in strategy extends it rather than replacing it.
+ *
+ * Spread alone replaced it, so a site naming one endpoint dropped the scheme,
+ * the client id and every other endpoint, and the strategy failed silently.
+ * Object-valued keys merge at every depth, so `endpoints.login.url` keeps the
+ * `baseURL` beside it. Anything else the site names wins, so `logout: false`
+ * still replaces. A strategy the module does not define passes through.
+ */
+const extendStrategies = (builtIn, site) => {
+  const strategies = { ...builtIn }
+  for (const [name, options] of Object.entries(site || {})) {
+    strategies[name] = extend(builtIn[name], options)
+  }
+  return strategies
+}
+
 // eslint-disable-next-line no-unused-vars
 const NuxtModule = function (moduleOptions = {}) {
   const options = {
@@ -65,6 +94,9 @@ const NuxtModule = function (moduleOptions = {}) {
       })
     }
   }
+
+  // Captured first: the assignment below rebuilds `strategies`.
+  const siteStrategies = (this.options.auth || {}).strategies
 
   // @nuxtjs/auth-next module settings.
   this.options.auth = {
@@ -152,10 +184,12 @@ const NuxtModule = function (moduleOptions = {}) {
         },
         grantType: 'password',
       },
-
-      ...(this.options.auth || {}).strategies,
     },
   }
+  this.options.auth.strategies = extendStrategies(
+    this.options.auth.strategies,
+    siteStrategies
+  )
 
   // Add password grant server middleware.
   this.options.serverMiddleware.unshift({
