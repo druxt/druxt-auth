@@ -242,7 +242,7 @@ Both of the following apply:
 `$auth.logout()` ends the frontend session and nothing else. Simple OAuth
 does not serve a revocation endpoint, so the tokens it issued stay valid until they
 expire, and the refresh token can still mint new access tokens for its whole
-lifetime. Spending them at logout needs a revocation route on the Drupal side
+lifetime. Ending them at logout needs a revocation route on the Drupal side
 ([issue 2945273](https://www.drupal.org/project/simple_oauth/issues/2945273)
 carries a patch), called through the Nuxt proxy so it shares the frontend
 origin.
@@ -279,9 +279,6 @@ same origin with the frontend, because the session cookie has to reach
 `/oauth/authorize`, so use the API proxy above. The Consumer must also have
 **Automatically authorize this client** set, or Drupal shows its own consent
 page and the visitor leaves the site.
-
-Style it with your own CSS. Give the inputs a font size of at least 16px at
-coarse pointers, or iOS zooms the page when one takes focus.
 
 The proxy and this page share the `/user/login` path and do not collide. The
 module proxies that path for POST alone, which is what Drupal's JSON login
