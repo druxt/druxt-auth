@@ -1,0 +1,240 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * @file
+ * Provision the example backend: a fresh standard-profile `drush
+ * site:install` against a throwaway SQLite database, then the Simple OAuth
+ * setup the frontend authorises against.
+ *
+ * The same steps as `.ddev/commands/web/drupal-install` and
+ * `.ddev/commands/web/druxt-add-consumer`, without Docker, so a pipeline can
+ * run them too.
+ *
+ * The SQLite override lives in `web/sites/default/settings.local.php`
+ * (gitignored), not `settings.php`, so every run after the first only ever
+ * writes the gitignored file.
+ */
+
+declare(strict_types=1);
+
+namespace DruxtAuthDevTools;
+
+require_once __DIR__ . '/helpers.php';
+
+// -----------------------------------------------------------------------------
+// Variables.
+// -----------------------------------------------------------------------------
+
+$db_file = resolve_env_value('DB_FILE', '/tmp/druxt-auth-drupal-site.sqlite')[0];
+
+// example/.env holds the client id the frontend is built with, and
+// resolve_env_value() reads it from there, so both halves agree without
+// anything being passed between them.
+$client_id = resolve_env_value('OAUTH_CLIENT_ID', '')[0];
+$callback = resolve_env_value('OAUTH_CALLBACK', 'http://localhost:3000/callback')[0];
+$password_client_id = resolve_env_value('OAUTH_PASSWORD_CLIENT_ID', '')[0];
+$password_secret = resolve_env_value('OAUTH_PASSWORD_SECRET', 'druxt-password-secret')[0];
+$account_name = resolve_env_value('ACCOUNT_NAME', 'druxttest')[0];
+$account_pass = resolve_env_value('ACCOUNT_PASS', 'druxttest-pass')[0];
+
+if ($client_id === '') {
+  FAIL('No OAUTH_CLIENT_ID in the environment or example/.env. The frontend and the consumer must agree on it.');
+}
+if ($password_client_id === '') {
+  FAIL('No OAUTH_PASSWORD_CLIENT_ID in the environment or example/.env.');
+}
+
+// -----------------------------------------------------------------------------
+
+echo '===============================' . PHP_EOL;
+echo '         🚀 PROVISION          ' . PHP_EOL;
+echo '===============================' . PHP_EOL;
+echo PHP_EOL;
+
+TASK('Preparing web/sites/default/settings.php.');
+$settings_php = 'web/sites/default/settings.php';
+// The scaffold ships the directory read-only, which is what Drupal wants
+// afterwards but not while it is being written.
+@chmod('web/sites/default', 0755);
+if (!file_exists($settings_php)) {
+  if (!copy('web/sites/default/default.settings.php', $settings_php)) {
+    FAIL('Unable to create %s from default.settings.php.', $settings_php);
+  }
+}
+@chmod($settings_php, 0644);
+$settings_contents = (string) file_get_contents($settings_php);
+$commented_include = "#\n# if (file_exists(\$app_root . '/' . \$site_path . '/settings.local.php')) {\n#   include \$app_root . '/' . \$site_path . '/settings.local.php';\n# }\n";
+$active_include = "\nif (file_exists(\$app_root . '/' . \$site_path . '/settings.local.php')) {\n  include \$app_root . '/' . \$site_path . '/settings.local.php';\n}\n";
+if (str_contains($settings_contents, $commented_include)) {
+  file_put_contents($settings_php, str_replace($commented_include, $active_include, $settings_contents));
+}
+elseif (!str_contains($settings_contents, $active_include)) {
+  FAIL('Could not find the expected settings.local.php include block (commented or active) in %s. The file may have changed shape - update this script\'s anchor rather than skipping the patch.', $settings_php);
+}
+PASS('settings.php includes settings.local.php.');
+
+TASK('Configuring the SQLite database at %s.', $db_file);
+if (file_exists($db_file)) {
+  unlink($db_file);
+}
+// var_export() so a path containing quotes stays valid PHP.
+$db_file_php = var_export($db_file, TRUE);
+file_put_contents('web/sites/default/settings.local.php', sprintf(
+  "<?php\n\n/**\n * @file\n * Provision-only override, written fresh each run by .devtools/provision.\n * Gitignored - never committed.\n */\n\n\$databases['default']['default'] = [\n  'driver' => 'sqlite',\n  'database' => %s,\n];\n",
+  $db_file_php
+));
+PASS('SQLite database configured.');
+
+TASK('Running drush site:install standard.');
+drush('site:install standard --site-name=%s', 'druxt-auth example');
+PASS('Site installed.');
+
+// Drupal 11's standard profile no longer creates content types itself.
+// Article and Page ship as separate core recipes, and without them there are
+// no node bundles for the end-to-end run's data request to read.
+TASK('Applying the Page content-type recipe.');
+drush('recipe:apply %s', getcwd() . '/web/core/recipes/page_content_type');
+drush('cache:rebuild');
+PASS('Content type applied.');
+
+TASK('Enabling druxt and simple_oauth.');
+// simple_oauth_password_grant is where Simple OAuth 6 keeps the password
+// grant, so the example's second Consumer has something to answer it.
+drush('pm:enable druxt simple_oauth simple_oauth_password_grant');
+drush('role:perm:add anonymous %s', 'access druxt resources');
+drush('config:set jsonapi.settings read_only 0');
+PASS('Modules enabled; JSON:API accepts writes.');
+
+// Simple OAuth signs every token with these. Without them each grant fails as
+// an opaque server error rather than as a missing key.
+TASK('Generating the Simple OAuth keys.');
+$keys_dir = getcwd() . '/keys';
+if (!is_dir($keys_dir) && !mkdir($keys_dir, 0755, TRUE)) {
+  FAIL('Unable to create %s.', $keys_dir);
+}
+// Absolute, because drush resolves a relative path against the Drupal root
+// rather than the shell's directory: `keys` would land in web/keys while the
+// settings below point one level above it, and every grant would fail with
+// nothing to say why.
+drush('config:set simple_oauth.settings public_key ../keys/public.key');
+drush('config:set simple_oauth.settings private_key ../keys/private.key');
+drush('simple-oauth:generate-keys %s', $keys_dir);
+if (!is_file($keys_dir . '/public.key') || !is_file($keys_dir . '/private.key')) {
+  FAIL('No key pair at %s. Simple OAuth signs every token with these.', $keys_dir);
+}
+PASS('Keys generated.');
+
+// One scope per role, with the scope id equal to the role id, and the
+// consumer listing every role its users may hold. A scope is a ceiling:
+// Oauth2AccessPolicy intersects the scopes' permissions with the account's,
+// so naming too few silently removes permissions the account has, and the
+// write fails as a 403 with nothing scope-shaped to point at.
+//
+// Simple OAuth 6 also refuses an authorize request that names no scope
+// unless the consumer carries a default, so these exist before it does.
+// Before the scopes, because a scope names a role that has to exist.
+TASK('Creating the druxt_oauth role.');
+drush('role:create druxt_oauth %s', 'Druxt OAuth');
+drush('role:perm:add druxt_oauth %s', 'grant simple_oauth codes');
+PASS('Role created.');
+
+TASK('Creating a scope per role.');
+foreach (['authenticated', 'druxt_oauth'] as $role) {
+  drush('php:eval %s', sprintf(
+    '\Drupal\simple_oauth\Entity\Oauth2Scope::create([
+      "id" => %s,
+      "name" => %s,
+      "description" => "Everything the %s role may do.",
+      "grant_types" => [
+        "authorization_code" => ["status" => TRUE],
+        "refresh_token" => ["status" => TRUE],
+        "password" => ["status" => TRUE],
+      ],
+      "umbrella" => FALSE,
+      "granularity_id" => "role",
+      "granularity_configuration" => ["role" => %s],
+    ])->save();',
+    var_export($role, TRUE),
+    var_export($role, TRUE),
+    $role,
+    var_export($role, TRUE)
+  ));
+}
+PASS('Scopes created.');
+
+// Public plus PKCE: a browser cannot hold a secret, and the authorization
+// code grant is the one Simple OAuth 6 keeps.
+TASK('Creating the consumer %s.', $client_id);
+drush('php:eval %s', sprintf(
+  '\Drupal\consumers\Entity\Consumer::create([
+    "owner_id" => 1,
+    "uuid" => %s,
+    // Consumers 1.17 looks the client up by this field, not by the uuid, and
+    // a consumer saved without it answers every grant with invalid_client.
+    "client_id" => %s,
+    "label" => "DruxtAuth example",
+    "confidential" => FALSE,
+    "pkce" => TRUE,
+    "redirect" => %s,
+    "image_styles" => [],
+    // Simple OAuth 6 gates every grant on this field and it defaults to
+    // empty, so a consumer without it is refused whatever else is right.
+    // The roles field it replaced is gone.
+    "grant_types" => ["authorization_code", "refresh_token"],
+    "authorization_code_scopes" => ["authenticated", "druxt_oauth"],
+  ])->save();',
+  var_export($client_id, TRUE),
+  var_export($client_id, TRUE),
+  var_export($callback, TRUE)
+));
+PASS('Consumer created.');
+
+// The password grant wants the opposite client to the browser flow: that one
+// is public because a browser cannot hold a secret, this one is confidential,
+// so the example covers a Consumer that authenticates with one.
+TASK('Creating the confidential consumer for the password grant.');
+drush('php:eval %s', sprintf(
+  '\Drupal\consumers\Entity\Consumer::create([
+    "owner_id" => 1,
+    "uuid" => %s,
+    "client_id" => %s,
+    "label" => "DruxtAuth example (password)",
+    "confidential" => TRUE,
+    "secret" => %s,
+    "pkce" => FALSE,
+    "image_styles" => [],
+    "grant_types" => ["password", "refresh_token"],
+    "scopes" => ["authenticated", "druxt_oauth"],
+  ])->save();',
+  var_export($password_client_id, TRUE),
+  var_export($password_client_id, TRUE),
+  var_export($password_secret, TRUE)
+));
+PASS('Confidential consumer created.');
+
+// User 1 bypasses every permission check, so an end-to-end run as the admin
+// would never see the consent step that fails for everybody else.
+TASK('Creating the %s account, which is not user 1.', $account_name);
+drush('user:create %s --password=%s', [$account_name, $account_pass]);
+drush('user:role:add druxt_oauth %s', $account_name);
+PASS('Account created and granted consent.');
+
+// One node, so a data request has something to read.
+TASK('Creating a page for the data request to read.');
+drush('php:eval %s', '\Drupal\node\Entity\Node::create(["type" => "page", "title" => "Example page", "status" => 1])->save();');
+PASS('Page created.');
+
+echo PHP_EOL;
+echo '===============================' . PHP_EOL;
+echo '   🚀 PROVISION COMPLETE  ✅  ' . PHP_EOL;
+echo '===============================' . PHP_EOL;
+echo PHP_EOL;
+echo 'Database  : ' . $db_file . PHP_EOL;
+echo 'Client ID : ' . $client_id . PHP_EOL;
+echo 'Password  : ' . $password_client_id . ' / ' . $password_secret . PHP_EOL;
+echo 'Account   : ' . $account_name . ' / ' . $account_pass . PHP_EOL;
+echo PHP_EOL;
+echo '> Next steps:' . PHP_EOL;
+echo '  .devtools/start    # Start the webserver' . PHP_EOL;
+echo PHP_EOL;

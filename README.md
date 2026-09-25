@@ -207,7 +207,7 @@ It adds two auth strategies that can be used via the `$auth` plugin:
   provides. Off by default: a frontend that talks to the API alone has no use
   for the session or the request.
 
-- See the **nuxt/auth** documentation form more details: https://auth.nuxtjs.org/api/auth
+- See the **nuxt/auth** documentation for more details: https://auth.nuxtjs.org/api/auth
 
 ## Sessions
 
@@ -242,7 +242,7 @@ Both of the following apply:
 `$auth.logout()` ends the frontend session and nothing else. Simple OAuth
 does not serve a revocation endpoint, so the tokens it issued stay valid until they
 expire, and the refresh token can still mint new access tokens for its whole
-lifetime. Spending them at logout needs a revocation route on the Drupal side
+lifetime. Ending them at logout needs a revocation route on the Drupal side
 ([issue 2945273](https://www.drupal.org/project/simple_oauth/issues/2945273)
 carries a patch), called through the Nuxt proxy so it shares the frontend
 origin.
@@ -280,9 +280,6 @@ same origin with the frontend, because the session cookie has to reach
 **Automatically authorize this client** set, or Drupal shows its own consent
 page and the visitor leaves the site.
 
-Style it with your own CSS. Give the inputs a font size of at least 16px at
-coarse pointers, or iOS zooms the page when one takes focus.
-
 The proxy and this page share the `/user/login` path and do not collide. The
 module proxies that path for POST alone, which is what Drupal's JSON login
 answers on, so a GET reaches this page.
@@ -317,32 +314,15 @@ export default {
 </script>
 ```
 
-## Saving a user signs them out
+## Saving a user revokes their tokens
 
 Drupal revokes a user's access tokens whenever that user is saved, so an
-editor who edits their own profile returns to a site that believes it is
-signed in and is refused every request. `simple_oauth_user_update()` calls
-`TokenExpiryTriggerHandler::handleUserUpdate()` with nothing gating it, and
-Simple OAuth 6.1.1 has no setting for it.
+editor who saves their own profile would otherwise come back to a site that
+thinks it is signed in and is refused every request.
 
-The module recovers from it, with no configuration. Only access tokens are
-revoked, so the refresh token is still in the browser, and one 401 buys one
-refresh and one replay of the request.
-
-A burst costs one refresh, not one each. Requests that fail at the same
-moment share the refresh in flight, and a request refused in the few seconds
-after a refresh succeeded is retried with the token that refresh produced.
-Both halves matter, because each refresh rotates the tokens and revokes what
-the one before it issued.
-
-Where the refresh also fails, the original answer reaches the caller, since
-that is a real sign out. Where a backend revokes continuously, the site stops
-trying after three refreshes in thirty seconds rather than retrying for ever.
-
-Recovery is one refresh per grace window, so revocations arriving faster than
-that are not recovered and those requests are refused. Measured with seven
-saves 120 milliseconds apart. It is transient rather than a sign out: the
-session stays, and the next request after the window recovers on one refresh.
+The module handles this on its own, with no configuration: the refresh token
+is untouched, so the next request refreshes and replays. Only a rapid burst of
+saves outpaces the recovery, and the request after the burst recovers.
 
 Upstream this is [drupal.org issue 2946882](https://www.drupal.org/i/2946882).
 

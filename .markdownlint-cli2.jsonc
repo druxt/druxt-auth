@@ -15,6 +15,11 @@
     "coverage/**",
     "dist/**",
     "example/**/node_modules/**",
+    // Composer installs these; they are upstream's prose, not ours.
+    "example/drupal/vendor/**",
+    "example/drupal/web/core/**",
+    "example/drupal/web/**/contrib/**",
+    "example/drupal/web/libraries/**",
     // Written by changesets, not by hand.
     ".changeset/**",
     "**/CHANGELOG.md"

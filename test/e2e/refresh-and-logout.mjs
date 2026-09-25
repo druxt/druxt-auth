@@ -25,12 +25,21 @@
  * 1 bypasses permissions, so test with a normal account.
  */
 
+import { execFileSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 const FRONTEND = process.env.FRONTEND || 'http://localhost:3000'
 const BACKEND = process.env.BACKEND || 'http://127.0.0.1:8888'
 const CLIENT_ID = process.env.CLIENT_ID
 const USERNAME = process.env.USERNAME || 'druxttest'
 const PASSWORD = process.env.PASSWORD || 'druxttest-pass'
 const STRATEGY = process.env.STRATEGY || 'drupal-authorization_code'
+// The password grant runs against its own confidential consumer, because the
+// browser flow's has to be public. Unset, those checks are skipped.
+const PASSWORD_CLIENT_ID = process.env.PASSWORD_CLIENT_ID
+// Where drush lives, for the revoked-token case. The example provides it.
+const DRUPAL_DIR = process.env.DRUPAL_DIR || 'example/drupal'
 
 let chromium
 try {
@@ -43,10 +52,17 @@ try {
 }
 
 const results = []
+// A bearer token or a JWT must never reach the job log: GitLab logs are
+// Reporter-visible and this file is documented for running against other
+// backends. Playwright's request errors carry the Authorization header.
+const redact = (value) =>
+  String(value)
+    .replace(/Bearer\s+[A-Za-z0-9._~+/-]+=*/gi, 'Bearer [redacted]')
+    .replace(/eyJ[A-Za-z0-9._-]{20,}/g, '[redacted-jwt]')
 const check = (name, pass, detail = '') => {
   results.push({ name, pass, detail })
   console.log(
-    `${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`
+    `${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${redact(detail)})` : ''}`
   )
 }
 
@@ -99,6 +115,17 @@ const expireAccessToken = () =>
 
 const login = async () => {
   await page.goto(`${FRONTEND}/user/login`, { waitUntil: 'networkidle' })
+
+  // The module serves this page itself, with a credential form on it. Sites
+  // that disable it keep whatever their own page did, so both are driven.
+  const form = await page.$('form input[name="pass"]')
+  if (form) {
+    await page.fill('input[name="name"]', USERNAME)
+    await page.fill('input[name="pass"]', PASSWORD)
+    await page.click('button[type="submit"]')
+    await page.waitForTimeout(2500)
+  }
+
   if (page.url().startsWith(BACKEND) && page.url().includes('/user/login')) {
     await page.fill('#edit-name', USERNAME)
     await page.fill('#edit-pass', PASSWORD)
@@ -108,7 +135,10 @@ const login = async () => {
     ])
   }
   if (page.url().includes('/oauth/authorize')) {
-    const allow = await page.$('input[value="Allow"], button[value="Allow"]')
+    // Simple OAuth labels it "Grant"; older builds said "Allow".
+    const allow = await page.$(
+      'input[value="Grant"], button[value="Grant"], input[value="Allow"], button[value="Allow"]'
+    )
     if (!allow) throw new Error(`No consent button at ${page.url()}`)
     await Promise.all([
       page.waitForNavigation({ waitUntil: 'networkidle' }).catch(() => {}),
@@ -201,6 +231,45 @@ try {
       : 'refreshed during the server render'
   )
 
+  // Case E: the recovery this stack exists for. Saving the user in Drupal
+  // revokes that user's access tokens (simple_oauth_user_update), so the
+  // browser now holds a token the backend has deleted. Nothing about it looks
+  // expired, so only a 401 reveals it and only the interceptor recovers it.
+  // The cases above expire tokens in the browser, which the library handles
+  // by itself, and never reach the interceptor at all.
+  // Absolute: execFileSync resolves a relative command against the process
+  // cwd, not its `cwd` option, so a DRUPAL_DIR-relative path would double up.
+  const drush = resolve(DRUPAL_DIR, 'vendor/bin/drush')
+  if (existsSync(drush)) {
+    const revokedBefore = session.token
+    execFileSync(
+      drush,
+      ['php:eval', '\\Drupal\\user\\Entity\\User::load(2)->save();'],
+      { cwd: DRUPAL_DIR }
+    )
+    calls.length = 0
+    const recovered = await page.evaluate(async () => {
+      try {
+        const response = await window.$nuxt.$axios.get('/jsonapi/node/page')
+        return `ok ${response.status}`
+      } catch (error) {
+        return `err ${error.message}`
+      }
+    })
+    await page.waitForTimeout(1500)
+    session = await state()
+    check(
+      'E. a token the backend revoked is refreshed and the request replayed',
+      recovered.startsWith('ok') &&
+        session.loggedIn &&
+        session.token !== revokedBefore &&
+        calls.some((c) => c.grant === 'refresh_token'),
+      recovered
+    )
+  } else {
+    console.log(`SKIP  E. revoked-token recovery (no drush at ${drush})`)
+  }
+
   // Case D: refresh token expired in storage
   await page.evaluate(() => {
     window.$nuxt.$auth.strategy.token._setExpiration(Date.now() - 60000)
@@ -258,38 +327,64 @@ try {
     Object.keys(residue.cookies).join(', ')
   )
 
-  const userinfo = await fetch(`${BACKEND}/oauth/userinfo`, {
+  // Playwright's own client, not `fetch`: the pipeline builds the module on
+  // Node 16, which has no global fetch, and this file runs on that Node.
+  const userinfo = await context.request.get(`${BACKEND}/oauth/userinfo`, {
     headers: { Authorization: carried.token },
   })
   check(
-    'the access token still works after logout',
-    userinfo.status === 200,
-    `HTTP ${userinfo.status} from /oauth/userinfo`
+    'characterises: the access token still works after logout (until a revocation route ends it)',
+    userinfo.status() === 200,
+    `HTTP ${userinfo.status()} from /oauth/userinfo`
   )
 
   if (CLIENT_ID) {
-    const renewed = await fetch(`${BACKEND}/oauth/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
+    const renewed = await context.request.post(`${BACKEND}/oauth/token`, {
+      form: {
         grant_type: 'refresh_token',
         refresh_token: carried.refresh,
         client_id: CLIENT_ID,
-      }),
+      },
     })
     const body = await renewed.json().catch(() => ({}))
     check(
-      'the refresh token still mints access tokens after logout',
-      renewed.status === 200 && !!body.access_token,
-      `HTTP ${renewed.status}`
+      'characterises: the refresh token still mints access tokens after logout',
+      renewed.status() === 200 && !!body.access_token,
+      `HTTP ${renewed.status()}`
     )
   } else {
     console.log('SKIP  refresh token after logout (set CLIENT_ID to run it)')
   }
 } catch (error) {
-  console.error(`\nAborted: ${error.message}`)
+  console.error(`\nAborted: ${redact(error.message)}`)
   await browser.close()
   process.exit(1)
+}
+
+// The password grant, which Simple OAuth 6 keeps in a contrib module. It runs
+// through the module's own server route rather than the browser, so this
+// drives that route the way the example's form does.
+if (PASSWORD_CLIENT_ID) {
+  const granted = await context.request.post(
+    `${FRONTEND}/_auth/drupal-password/token`,
+    {
+      data: {
+        grant_type: 'password',
+        username: USERNAME,
+        password: PASSWORD,
+      },
+    }
+  )
+  const body = await granted.json().catch(() => ({}))
+  check(
+    'the password grant mints a token through the module route',
+    granted.status() === 200 && !!body.access_token,
+    `HTTP ${granted.status()}`
+  )
+  check(
+    'and a refresh token with it, so that session renews too',
+    !!body.refresh_token
+  )
 }
 
 await browser.close()
