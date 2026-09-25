@@ -262,7 +262,7 @@ Watch for these:
 `$auth.logout()` ends the frontend session and nothing else. Simple OAuth
 does not serve a revocation endpoint, so its tokens stay valid until they
 expire.
-Spending them needs a revocation route on the Drupal side, called through the
+Ending them needs a revocation route on the Drupal side, called through the
 proxy ([issue 2945273](https://www.drupal.org/project/simple_oauth/issues/2945273)).
 
 It also leaves its own storage keys behind, holding the string `"false"`,
