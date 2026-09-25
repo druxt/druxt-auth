@@ -23,7 +23,7 @@ pasted onto these same lines.
 """
 targetRules = ["generic-api-key"]
 regexes = [
-  '''d428854d-7d89-4756-816f-3ab1ddf7dd36''',
-  '''6f2a1c40-98e3-4a2b-9c71-5d0e8b4f3a19''',
-  '''druxt-password-secret''',
+  '''^d428854d-7d89-4756-816f-3ab1ddf7dd36$''',
+  '''^6f2a1c40-98e3-4a2b-9c71-5d0e8b4f3a19$''',
+  '''^druxt-password-secret$''',
 ]
