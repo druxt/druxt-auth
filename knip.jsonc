@@ -20,6 +20,10 @@
     // Installed by hand for test/e2e, which is a manual tool and runs in no
     // pipeline. See test/e2e/README.md. Declaring it would put a browser
     // toolchain in every install for a script CI never runs.
-    "playwright"
+    "playwright",
+    // Imported in src/index.js to register the proxy. knip 2.43 reports it
+    // unused regardless, while crediting packages imported beside it, and
+    // the cause was not found. Drop this once a knip upgrade stops reporting it.
+    "http-proxy-middleware"
   ]
 }
