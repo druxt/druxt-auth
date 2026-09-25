@@ -321,8 +321,8 @@ editor who saves their own profile would otherwise come back to a site that
 thinks it is signed in and is refused every request.
 
 The module handles this on its own, with no configuration: the refresh token
-is untouched, so the next request refreshes and replays. Only a burst of saves
-in the same second or two outpaces that, and the request after it recovers.
+is untouched, so the next request refreshes and replays. Only a rapid burst of
+saves outpaces the recovery, and the request after the burst recovers.
 
 Upstream this is [drupal.org issue 2946882](https://www.drupal.org/i/2946882).
 
