@@ -149,6 +149,7 @@ foreach (['authenticated', 'druxt_oauth'] as $role) {
       "grant_types" => [
         "authorization_code" => ["status" => TRUE],
         "refresh_token" => ["status" => TRUE],
+        "password" => ["status" => TRUE],
       ],
       "umbrella" => FALSE,
       "granularity_id" => "role",
