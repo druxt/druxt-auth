@@ -2,4 +2,4 @@
 'druxt-auth': minor
 ---
 
-feat(#19): add a default login page and a DruxtAuthLogin component
+Added a login page at `/user/login` and a `DruxtAuthLogin` component, which a site overrides by dropping its own component of that name into `components/`.
