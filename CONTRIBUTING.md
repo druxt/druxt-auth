@@ -60,3 +60,5 @@ User-facing changes need a changeset:
 ```sh
 yarn changeset
 ```
+
+A merged changeset publishes a development release straight away, and a stable release once the pull request that versions the package is merged. See [Releasing](RELEASING.md).
