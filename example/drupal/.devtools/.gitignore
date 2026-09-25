@@ -1,0 +1,4 @@
+# Written by the scripts here, never committed.
+*.log
+*.pid
+*.sqlite

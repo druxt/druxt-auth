@@ -9,7 +9,9 @@
     "generate": "nuxt generate"
   },
   "dependencies": {
+    "consola": "2.15.3",
     "core-js": "3.32.0",
+    "defu": "5.0.1",
     "dotenv": "^16.3.1",
     "druxt": "^0.23.0",
     "druxt-auth": "link:../..",
