@@ -18,9 +18,13 @@ import { readPackages } from './check.mjs'
 export function extractNotes(changelog, version) {
   const lines = changelog.split('\n')
   const isHeading = (line) => /^## \S/.test(line)
-  const start = lines.findIndex(
-    (line) => isHeading(line) && line.slice(3).split(' ')[0] === version
-  )
+  // Reads the version from a heading in either form the changelog uses:
+  // a bare `## 0.5.0` or the dated `## [0.5.0] - 2026-09-26`.
+  const headingVersion = (line) => {
+    const match = line.match(/^## \[?([^\]\s]+)\]?/)
+    return match ? match[1] : null
+  }
+  const start = lines.findIndex((line) => headingVersion(line) === version)
   if (start === -1) return null
 
   const rest = lines.slice(start + 1)

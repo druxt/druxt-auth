@@ -3,9 +3,9 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [0.x]
   # No branch filter: a pull request into any base runs CI. A stacked pull
-  # request targets the branch below it rather than develop, and a filter here
+  # request targets the branch below it rather than 0.x, and a filter here
   # would leave every one of them untested but green.
   pull_request:
 
