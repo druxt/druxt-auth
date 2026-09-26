@@ -58,7 +58,7 @@
     "test:e2e": "node test/e2e/refresh-and-logout.mjs",
     "test:e2e:ssr": "node test/e2e/revoked-token-ssr.mjs",
     "test:watch": "jest --watch",
-    "version": "changeset version"
+    "version": "changeset version && node scripts/release/changelog-dates.mjs"
   },
   "dependencies": {
     "@nuxtjs/auth-next": "^5.0.0-1667386184.dfbbb54",

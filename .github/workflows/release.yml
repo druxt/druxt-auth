@@ -281,14 +281,16 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           node -p "require('./release-packages/manifest.json').map((p) => p.name + ' ' + p.version + ' ' + p.file).join('\n')" > entries.txt
+          # npm publishes under name@version; the git tag and release are the
+          # bare version, which is how this repository has tagged releases.
           while read -r name version file; do
             if [ -n "$(npm view "$name@$version" version 2>/dev/null)" ]; then
               echo "$name@$version is already on npm."
             else
               npm publish "./release-packages/$file" --access public
             fi
-            if ! gh release view "$name@$version" > /dev/null 2>&1; then
-              gh release create "$name@$version" --target "$GITHUB_SHA" --title "$name@$version" --notes-file "release-packages/$file.md"
+            if ! gh release view "$version" > /dev/null 2>&1; then
+              gh release create "$version" --target "$GITHUB_SHA" --title "$version" --notes-file "release-packages/$file.md"
             fi
-            echo "- $name@$version" >> "$GITHUB_STEP_SUMMARY"
+            echo "- $version" >> "$GITHUB_STEP_SUMMARY"
           done < entries.txt
