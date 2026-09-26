@@ -127,7 +127,7 @@ jobs:
   dev:
     needs: snapshot
     if: >-
-      github.event_name != 'pull_request' &&
+      github.event_name == 'push' &&
       github.ref == 'refs/heads/0.x' &&
       vars.NPM_PUBLISH == 'true' &&
       needs.snapshot.outputs.count != '0'
@@ -161,7 +161,7 @@ jobs:
   # Opens or updates the version pull request, and packs the version npm does
   # not have yet. It runs repository code, so it holds no publishing rights.
   version:
-    if: github.repository == 'druxt/druxt-auth' && github.event_name == 'push'
+    if: github.repository == 'druxt/druxt-auth' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       contents: write
