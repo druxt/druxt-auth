@@ -105,6 +105,8 @@ function main() {
   )
   const source = fs.readFileSync(file, 'utf8')
   const output = stampChangelog(source, {
+    // The versioning date, not the publish date: the two differ only if the
+    // version pull request sits open across a date boundary.
     date: new Date().toISOString().slice(0, 10),
     url: repoUrl(manifest.repository),
   })

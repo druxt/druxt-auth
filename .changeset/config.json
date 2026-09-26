@@ -8,7 +8,7 @@
   "snapshot": {
     "useCalculatedVersion": true
   },
-  "baseBranch": "develop",
+  "baseBranch": "0.x",
   "updateInternalDependencies": "patch",
   "ignore": []
 }

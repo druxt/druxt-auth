@@ -1,11 +1,11 @@
-<img src="https://github.com/druxt/druxt-auth/raw/develop/.github/banner.svg" alt="druxt-auth, the authentication module for DruxtJS">
+<img src="https://github.com/druxt/druxt-auth/raw/0.x/.github/banner.svg" alt="druxt-auth, the authentication module for DruxtJS">
 
 # DruxtAuth
 
 [![npm](https://badgen.net/npm/v/druxt-auth)](https://www.npmjs.com/package/druxt-auth)
 [![CI](https://github.com/druxt/druxt-auth/actions/workflows/ci.yml/badge.svg)](https://github.com/druxt/druxt-auth/actions/workflows/ci.yml)
 [![Known Vulnerabilities](https://snyk.io/test/github/druxt/druxt-auth/badge.svg?targetFile=package.json)](https://snyk.io/test/github/druxt/druxt-auth?targetFile=package.json)
-[![codecov](https://codecov.io/gh/druxt/druxt-auth/branch/develop/graph/badge.svg)](https://codecov.io/gh/druxt/druxt-auth)
+[![codecov](https://codecov.io/gh/druxt/druxt-auth/branch/0.x/graph/badge.svg)](https://codecov.io/gh/druxt/druxt-auth)
 
 > Druxt Authentication with Drupal Simple OAuth2 and nuxt/auth.
 

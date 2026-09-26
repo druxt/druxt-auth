@@ -3,12 +3,12 @@ name: Release
 
 # Publishes the package to npm.
 #
-# dev: a push to develop that changes a changeset publishes a snapshot under
+# dev: a push to 0.x that changes a changeset publishes a snapshot under
 # the `dev` dist-tag. `latest` never moves, nothing is committed and no git
 # tag is made. Install it with `druxt-auth@dev`.
 #
 # release: while changesets are pending, keeps a "version packages" pull
-# request open against develop. Merging it is the release decision: the push
+# request open against 0.x. Merging it is the release decision: the push
 # that follows finds a version npm does not have, publishes it to `latest`,
 # and creates a tag and a GitHub Release.
 #
@@ -31,12 +31,12 @@ name: Release
 # npmjs.com. Until then the packed tarball is the dry run.
 on:
   push:
-    branches: [develop]
+    branches: [0.x]
     paths:
       - '.changeset/*.md'
       - '!.changeset/README.md'
   pull_request:
-    branches: [develop, main, 'feature/**']
+    branches: [0.x, 'feature/**']
     paths:
       - .github/workflows/release.yml
       - .changeset/config.json
@@ -128,7 +128,7 @@ jobs:
     needs: snapshot
     if: >-
       github.event_name != 'pull_request' &&
-      github.ref == 'refs/heads/develop' &&
+      github.ref == 'refs/heads/0.x' &&
       vars.NPM_PUBLISH == 'true' &&
       needs.snapshot.outputs.count != '0'
     runs-on: ubuntu-latest
@@ -170,7 +170,7 @@ jobs:
       unpublished: ${{ steps.unpublished.outputs.list }}
     steps:
       # GitHub runs no checks on a pull request opened with the workflow's own
-      # token, and develop requires them. An app token gets them run. Without
+      # token, and 0.x requires them. An app token gets them run. Without
       # the app the pull request still opens, and its checks need a manual run.
       - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         id: app
