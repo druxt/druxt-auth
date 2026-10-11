@@ -1,5 +1,11 @@
 # druxt-auth
 
+## [0.5.1] - 2026-10-11
+
+### Patch Changes
+
+- Fixed the axios peer range refusing axios 0.34, which druxt 0.25.0 requires, so a site with both installs one copy of druxt. ([#97](https://github.com/druxt/druxt-auth/issues/97), [`7a30431`](https://github.com/druxt/druxt-auth/commit/7a30431))
+
 ## [0.5.0] - 2026-09-26
 
 ### Minor Changes
@@ -53,6 +59,7 @@
 - Added support for OAuth2 Authorization Code grant with PKCE. ([`f6a7352`](https://github.com/druxt/druxt-auth/commit/f6a7352))
 - Initial release.
 
+[0.5.1]: https://github.com/druxt/druxt-auth/compare/0.5.0...0.5.1
 [0.5.0]: https://github.com/druxt/druxt-auth/compare/0.4.0...0.5.0
 [0.4.0]: https://github.com/druxt/druxt-auth/compare/0.3.0...0.4.0
 [0.3.0]: https://github.com/druxt/druxt-auth/compare/0.2.0...0.3.0
