@@ -4,6 +4,7 @@ import plugin, {
   GRACE,
   LIMIT,
   RETRIED,
+  shouldDropToken,
   shouldRefresh,
   targetsBackend,
 } from '../templates/auth-refresh.js'
@@ -70,6 +71,44 @@ describe('Whether an answer is worth refreshing for', () => {
   test('a failure with no answer at all is not', () => {
     expect(shouldRefresh(new Error('offline'), signedIn)).toBe(false)
     expect(shouldRefresh(undefined, signedIn)).toBe(false)
+  })
+})
+
+describe('Whether a rejected token should be dropped', () => {
+  const held = { hasToken: true }
+  const read = { method: 'get', url: '/jsonapi' }
+
+  test('a read refused with a 401 while holding a token is', () => {
+    expect(shouldDropToken(answer(401, read), held)).toBe(true)
+  })
+
+  test('a write is not, because it must not be repeated as someone else', () => {
+    expect(
+      shouldDropToken(answer(401, { method: 'post', url: '/jsonapi' }), held)
+    ).toBe(false)
+  })
+
+  test('a 403 is not, because the token was accepted', () => {
+    expect(shouldDropToken(answer(403, read), held)).toBe(false)
+  })
+
+  test('no token is not, because there is nothing to drop', () => {
+    expect(shouldDropToken(answer(401, read), { hasToken: false })).toBe(false)
+  })
+
+  test('a replay is not, so it cannot loop', () => {
+    expect(
+      shouldDropToken(answer(401, { ...read, [RETRIED]: true }), held)
+    ).toBe(false)
+  })
+
+  test('the token request is not, because a wrong password is no bad token', () => {
+    expect(
+      shouldDropToken(answer(401, { method: 'get', url: '/oauth/token' }), {
+        ...held,
+        tokenUrl: '/oauth/token',
+      })
+    ).toBe(false)
   })
 })
 
@@ -148,6 +187,7 @@ describe('Recovering', () => {
     const $auth = {
       loggedIn: true,
       refreshTokens: refreshTokens || jest.fn(() => Promise.resolve()),
+      reset: jest.fn(() => Promise.resolve()),
       strategy: {
         options: { endpoints: { token: 'https://cms/oauth/token' } },
         refreshToken: { get: () => 'refresh' },
@@ -214,7 +254,7 @@ describe('Recovering', () => {
     reject = ctx.reject
 
     const settled = await Promise.race([
-      ctx.reject(answer(401, { url: '/jsonapi' })).then(
+      ctx.reject(answer(401, { method: 'post', url: '/jsonapi' })).then(
         () => 'replayed',
         () => 'signed out'
       ),
@@ -223,13 +263,49 @@ describe('Recovering', () => {
     expect(settled).toBe('signed out')
   })
 
-  test('a failed refresh reports the original answer, not the refresh error', async () => {
+  test('a failed refresh of a write reports the original answer, not the refresh error', async () => {
     const refreshTokens = jest.fn(() =>
       Promise.reject(new Error('refresh gone'))
     )
-    const { reject } = setup({ refreshTokens })
+    const { reject, $auth, instance } = setup({ refreshTokens })
+    const original = answer(401, { method: 'post', url: '/jsonapi' })
+    await expect(reject(original)).rejects.toBe(original)
+    expect($auth.reset).not.toHaveBeenCalled()
+    expect(instance.request).not.toHaveBeenCalled()
+  })
+
+  test('a failed refresh of a read ends the session and repeats it anonymously', async () => {
+    const refreshTokens = jest.fn(() =>
+      Promise.reject(new Error('refresh gone'))
+    )
+    const { reject, $auth, instance } = setup({ refreshTokens })
+    const refused = answer(401, {
+      url: '/jsonapi',
+      headers: { Authorization: 'Bearer old', Accept: 'application/json' },
+    })
+    await expect(reject(refused)).resolves.toBe('ok')
+    expect($auth.reset).toHaveBeenCalledTimes(1)
+    const [config] = instance.request.mock.calls[0]
+    expect(config.headers).toEqual({ Accept: 'application/json' })
+    expect(config[RETRIED]).toBe(true)
+  })
+
+  test('a read still refused anonymously reports the original answer', async () => {
+    const refreshTokens = jest.fn(() =>
+      Promise.reject(new Error('refresh gone'))
+    )
+    const { reject, instance } = setup({ refreshTokens })
+    instance.request.mockRejectedValueOnce(answer(401))
     const original = answer(401, { url: '/jsonapi' })
     await expect(reject(original)).rejects.toBe(original)
+  })
+
+  test('another origin is not repeated, with the token or without', async () => {
+    const { reject, $auth, instance } = setup()
+    instance.defaults = { baseURL: 'https://cms' }
+    const original = answer(401, { url: 'https://elsewhere/x' })
+    await expect(reject(original)).rejects.toBe(original)
+    expect($auth.reset).not.toHaveBeenCalled()
   })
 
   test('gives up once a backend revokes continuously', () => {
@@ -247,7 +323,7 @@ describe('Recovering', () => {
     return (async () => {
       for (let i = 0; i < LIMIT; i += 1) await burst()
       clock += GRACE + 1
-      const over = answer(401, { url: '/over' })
+      const over = answer(401, { method: 'post', url: '/over' })
       await expect(reject(over)).rejects.toBe(over)
       expect($auth.refreshTokens).toHaveBeenCalledTimes(LIMIT)
     })()

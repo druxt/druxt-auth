@@ -114,6 +114,27 @@ export const shouldRefresh = (error, session = {}) => {
   return Boolean((session.loggedIn || session.server) && session.hasRefreshToken)
 }
 
+/**
+ * Whether a refused request should be repeated anonymously, without its token.
+ *
+ * Drupal answers 401 to any request carrying a token it no longer accepts, even
+ * for public content. With no way to recover the token, every page then fails
+ * until the visitor clears their cookies, the login page included. A read is
+ * safe to repeat. A write is not: it was meant to be made as that user.
+ *
+ * @param {object} error - The axios error.
+ * @param {object} session - What the session holds.
+ * @returns {boolean}
+ */
+export const shouldDropToken = (error, session = {}) => {
+  const { response, config } = error || {}
+  if (!response || response.status !== 401) return false
+  if (!config || config[RETRIED]) return false
+  if (!['get', 'head'].includes(String(config.method || 'get').toLowerCase())) return false
+  if (session.tokenUrl && config.url === session.tokenUrl) return false
+  return Boolean(session.hasToken)
+}
+
 export default function (context) {
   // Read `$auth` from the context when it is needed, never from the
   // arguments. The authentication module injects it after this plugin runs,
@@ -169,6 +190,7 @@ export default function (context) {
       loggedIn: Boolean($auth && $auth.loggedIn),
       server: typeof process !== 'undefined' && Boolean(process.server),
       hasRefreshToken: Boolean(refreshToken && refreshToken.get()),
+      hasToken: Boolean(strategy && strategy.token && strategy.token.get && strategy.token.get()),
       tokenUrl: typeof token === 'string' ? token : (token || {}).url,
     }
   }
@@ -176,16 +198,29 @@ export default function (context) {
   const attach = (instance) => {
     if (!instance || !instance.interceptors) return
     instance.interceptors.response.use(undefined, async (error) => {
-      if (!shouldRefresh(error, session())) throw error
-      // Never replay another host's request with the Drupal token attached.
+      // Never replay another host's request, with the Drupal token or without.
       if (!targetsBackend(error.config, instance)) throw error
+
+      const dropToken = async () => {
+        if (!shouldDropToken(error, session())) throw error
+        await auth().reset()
+        const headers = { ...error.config.headers }
+        delete headers.Authorization
+        try {
+          return await instance.request({ ...error.config, headers, [RETRIED]: true })
+        } catch (failed) {
+          throw error
+        }
+      }
+
+      if (!shouldRefresh(error, session())) return dropToken()
 
       try {
         await refresh()
       } catch (failed) {
-        // The refresh token is gone too. That is the real sign-out, and the
-        // original answer is what the caller should see.
-        throw error
+        // The refresh token is gone too. That is the real sign-out. The visitor
+        // can still read what's public, and sign in again.
+        return dropToken()
       }
 
       const config = { ...error.config, [RETRIED]: true }
