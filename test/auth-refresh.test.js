@@ -401,6 +401,48 @@ describe('Recovering', () => {
     expect($auth.reset).toHaveBeenCalledTimes(1)
   })
 
+  test('a read sent without a header keeps a session signed in again during its refresh', async () => {
+    let release
+    const refreshTokens = jest.fn(
+      () =>
+        new Promise((resolve, reject) => {
+          release = () => reject(refusedRefresh())
+        })
+    )
+    const { reject, $auth } = setup({ refreshTokens, token: 'Bearer old' })
+    let token = 'Bearer old'
+    $auth.strategy.token.get = () => token
+    const read = reject(answer(401, { url: '/jsonapi' }))
+    token = 'Bearer new'
+    release()
+    await expect(read).resolves.toBe('ok')
+    expect($auth.reset).not.toHaveBeenCalled()
+  })
+
+  test('the repeated read reaches the adapter without a token, whatever added one', async () => {
+    // auth-next's request interceptor, and axios' default headers, apply after
+    // this handler builds the repeat. The adapter sees the final headers.
+    const refreshTokens = jest.fn(() => Promise.reject(refusedRefresh()))
+    const { reject, instance } = setup({ refreshTokens, token: 'Bearer old' })
+    const adapter = jest.fn(() => Promise.resolve({ status: 200 }))
+    await reject(
+      answer(401, {
+        url: '/jsonapi',
+        adapter,
+        headers: { Authorization: 'Bearer old' },
+      })
+    )
+    const [replay] = instance.request.mock.calls[0]
+    await replay.adapter({
+      url: '/jsonapi',
+      headers: { authorization: 'Bearer new', Accept: 'application/json' },
+    })
+    expect(adapter).toHaveBeenCalledWith({
+      url: '/jsonapi',
+      headers: { Accept: 'application/json' },
+    })
+  })
+
   test('another origin is not repeated, with the token or without', async () => {
     const { reject, $auth, instance } = setup()
     instance.defaults = { baseURL: 'https://cms' }

@@ -247,6 +247,10 @@ export default function (context) {
       // Never replay another host's request, with the Drupal token or without.
       if (!targetsBackend(error.config, instance)) throw error
 
+      // The session this read belongs to, taken before any refresh, so a
+      // sign-in that completes while the refresh runs is recognised as another.
+      const before = currentToken()
+
       const dropToken = async () => {
         // Reads refused together share one failed refresh, and the first to get
         // here resets the session. The others were still refused for a token,
@@ -255,14 +259,24 @@ export default function (context) {
         const sent = sentToken(error.config)
         const eligible = { ...current, hasToken: current.hasToken || Boolean(sent) }
         if (!shouldDropToken(error, eligible)) throw error
-        // Reset only the session the read was refused for. A sign-in that
-        // stored a new token meanwhile is another session, and is kept.
-        if (current.hasToken && (!sent || sent === currentToken())) {
+        // Reset only the session the read was refused for: the token it sent,
+        // or the session's token before the refresh when it sent none. A
+        // sign-in that stored a new token meanwhile is another session.
+        if (current.hasToken && (sent || before) === currentToken()) {
           await auth().reset()
         }
         const headers = withoutAuthorization(error.config.headers)
+        const replay = { ...error.config, headers, [RETRIED]: true }
+        // auth-next's request interceptor and axios' default headers apply
+        // after this, and either can put a token back. The adapter is handed
+        // the final headers, so the token comes off there.
+        const adapter = error.config.adapter || ((instance || {}).defaults || {}).adapter
+        if (typeof adapter === 'function') {
+          replay.adapter = (config) =>
+            adapter({ ...config, headers: withoutAuthorization(config.headers) })
+        }
         try {
-          return await instance.request({ ...error.config, headers, [RETRIED]: true })
+          return await instance.request(replay)
         } catch (failed) {
           throw error
         }
