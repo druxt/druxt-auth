@@ -21,29 +21,66 @@ const LINTER = path.resolve(__dirname, '../scripts/lint-private-refs.mjs')
 
 let repo
 
+/**
+ * The environment without git's own variables.
+ *
+ * A pre-commit hook sets GIT_DIR and GIT_INDEX_FILE for the repository being
+ * committed. Inherited, they send every git call below to that repository, so
+ * `init` reinitialises it and `add` overwrites the index the commit is made
+ * from. Read on each call, so a variable set after this file loads is dropped
+ * too.
+ */
+const env = () =>
+  Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_'))
+  )
+
 /** A throwaway git repository, because the linter reads tracked files. */
 const commit = (files) => {
   Object.entries(files).forEach(([name, contents]) => {
     fs.mkdirSync(path.dirname(path.join(repo, name)), { recursive: true })
     fs.writeFileSync(path.join(repo, name), contents)
   })
-  execFileSync('git', ['-C', repo, 'add', '-A'])
+  execFileSync('git', ['-C', repo, 'add', '-A'], { env: env() })
 }
 
 const run = () => {
   const result = spawnSync(process.execPath, [LINTER, repo], {
     encoding: 'utf8',
+    env: env(),
   })
   return { status: result.status, output: result.stdout + result.stderr }
 }
 
+const fresh = () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'druxt-auth-private-'))
+  execFileSync('git', ['-C', dir, 'init', '-q'], { env: env() })
+  return dir
+}
+
 beforeEach(() => {
-  repo = fs.mkdtempSync(path.join(os.tmpdir(), 'druxt-auth-private-'))
-  execFileSync('git', ['-C', repo, 'init', '-q'])
+  repo = fresh()
 })
 
 afterEach(() => {
   fs.rmSync(repo, { recursive: true, force: true })
+})
+
+describe('the throwaway repositories', () => {
+  test('run git without the git variables a commit hook sets', () => {
+    // Jest gives this file its own process.env, but a child process inherits
+    // the worker's, so a hook's GIT_DIR reaches git unless every call passes
+    // its environment explicitly.
+    const saved = process.env.GIT_INDEX_FILE
+    process.env.GIT_INDEX_FILE = '/repository/being/committed/index'
+    try {
+      expect(env()).not.toHaveProperty('GIT_INDEX_FILE')
+      expect(env().PATH).toBe(process.env.PATH)
+    } finally {
+      if (saved === undefined) delete process.env.GIT_INDEX_FILE
+      else process.env.GIT_INDEX_FILE = saved
+    }
+  })
 })
 
 describe('lint:private', () => {
