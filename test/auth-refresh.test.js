@@ -11,6 +11,8 @@ import plugin, {
 
 const answer = (status, config = {}) => ({ response: { status }, config })
 const signedIn = { loggedIn: true, hasRefreshToken: true }
+// What the token endpoint answers a refresh token it no longer accepts.
+const refusedRefresh = () => answer(400, { url: 'https://cms/oauth/token' })
 
 describe('Whether an answer is worth refreshing for', () => {
   test('a 401 with a refresh token in hand is', () => {
@@ -264,9 +266,7 @@ describe('Recovering', () => {
   })
 
   test('a failed refresh of a write reports the original answer, not the refresh error', async () => {
-    const refreshTokens = jest.fn(() =>
-      Promise.reject(new Error('refresh gone'))
-    )
+    const refreshTokens = jest.fn(() => Promise.reject(refusedRefresh()))
     const { reject, $auth, instance } = setup({ refreshTokens })
     const original = answer(401, { method: 'post', url: '/jsonapi' })
     await expect(reject(original)).rejects.toBe(original)
@@ -275,10 +275,12 @@ describe('Recovering', () => {
   })
 
   test('a failed refresh of a read ends the session and repeats it anonymously', async () => {
-    const refreshTokens = jest.fn(() =>
-      Promise.reject(new Error('refresh gone'))
-    )
-    const { reject, $auth, instance } = setup({ refreshTokens })
+    const refreshTokens = jest.fn(() => Promise.reject(refusedRefresh()))
+    // A refused refresh leaves the session holding the token the read sent.
+    const { reject, $auth, instance } = setup({
+      refreshTokens,
+      token: 'Bearer old',
+    })
     const refused = answer(401, {
       url: '/jsonapi',
       headers: { Authorization: 'Bearer old', Accept: 'application/json' },
@@ -291,13 +293,112 @@ describe('Recovering', () => {
   })
 
   test('a read still refused anonymously reports the original answer', async () => {
-    const refreshTokens = jest.fn(() =>
-      Promise.reject(new Error('refresh gone'))
-    )
+    const refreshTokens = jest.fn(() => Promise.reject(refusedRefresh()))
     const { reject, instance } = setup({ refreshTokens })
     instance.request.mockRejectedValueOnce(answer(401))
     const original = answer(401, { url: '/jsonapi' })
     await expect(reject(original)).rejects.toBe(original)
+  })
+
+  test('a refresh that fails for another reason keeps the session', async () => {
+    // A timeout, a 5xx or the refresh limit says nothing about the refresh
+    // token, so the visitor stays signed in and sees the original answer.
+    const failures = [
+      new Error('timeout of 10000ms exceeded'),
+      answer(503, { url: 'https://cms/oauth/token' }),
+    ]
+    for (const failure of failures) {
+      const refreshTokens = jest.fn(() => Promise.reject(failure))
+      const { reject, $auth, instance } = setup({ refreshTokens })
+      const original = answer(401, { url: '/jsonapi' })
+      await expect(reject(original)).rejects.toBe(original)
+      expect($auth.reset).not.toHaveBeenCalled()
+      expect(instance.request).not.toHaveBeenCalled()
+    }
+  })
+
+  test('a refresh token auth-next finds expired ends the session too', async () => {
+    const expired = Object.assign(
+      new Error('Both token and refresh token have expired.'),
+      {
+        name: 'ExpiredAuthSessionError',
+      }
+    )
+    const refreshTokens = jest.fn(() => Promise.reject(expired))
+    const { reject, $auth } = setup({ refreshTokens })
+    await expect(reject(answer(401, { url: '/jsonapi' }))).resolves.toBe('ok')
+    expect($auth.reset).toHaveBeenCalledTimes(1)
+  })
+
+  test('concurrent reads sharing a refused refresh are all repeated anonymously', async () => {
+    // The first to finish resets the session, so the session no longer holds
+    // the token the others were refused for.
+    let release
+    const refreshTokens = jest.fn(
+      () =>
+        new Promise((resolve, reject) => {
+          release = () => reject(refusedRefresh())
+        })
+    )
+    const { reject, $auth, instance } = setup({ refreshTokens })
+    let token = 'Bearer old'
+    $auth.strategy.token.get = () => token
+    $auth.reset.mockImplementation(() => {
+      token = null
+      return Promise.resolve()
+    })
+    const reads = ['/a', '/b', '/c'].map((url) =>
+      reject(answer(401, { url, headers: { Authorization: 'Bearer old' } }))
+    )
+    release()
+    await expect(Promise.all(reads)).resolves.toEqual(['ok', 'ok', 'ok'])
+    expect(instance.request).toHaveBeenCalledTimes(3)
+    expect($auth.reset).toHaveBeenCalledTimes(1)
+  })
+
+  test('the repeated read drops the token whatever the case of its header', async () => {
+    const refreshTokens = jest.fn(() => Promise.reject(refusedRefresh()))
+    const { reject, instance } = setup({ refreshTokens })
+    const refused = answer(401, {
+      url: '/jsonapi',
+      headers: { authorization: 'Bearer old', Accept: 'application/json' },
+    })
+    await expect(reject(refused)).resolves.toBe('ok')
+    const [config] = instance.request.mock.calls[0]
+    expect(config.headers).toEqual({ Accept: 'application/json' })
+  })
+
+  test('a session signed in again while a refresh was pending is kept', async () => {
+    // The refused read and its refresh belong to the old token. A sign-in
+    // that stored a new one meanwhile is a session of its own.
+    let release
+    const refreshTokens = jest.fn(
+      () =>
+        new Promise((resolve, reject) => {
+          release = () => reject(refusedRefresh())
+        })
+    )
+    const { reject, $auth, instance } = setup({
+      refreshTokens,
+      token: 'Bearer old',
+    })
+    let token = 'Bearer old'
+    $auth.strategy.token.get = () => token
+    const read = reject(
+      answer(401, { url: '/jsonapi', headers: { Authorization: 'Bearer old' } })
+    )
+    token = 'Bearer new'
+    release()
+    await expect(read).resolves.toBe('ok')
+    expect($auth.reset).not.toHaveBeenCalled()
+    expect(instance.request.mock.calls[0][0].headers).toEqual({})
+  })
+
+  test('a refused read sent without a header still ends the session', async () => {
+    const refreshTokens = jest.fn(() => Promise.reject(refusedRefresh()))
+    const { reject, $auth } = setup({ refreshTokens, token: 'Bearer old' })
+    await expect(reject(answer(401, { url: '/jsonapi' }))).resolves.toBe('ok')
+    expect($auth.reset).toHaveBeenCalledTimes(1)
   })
 
   test('another origin is not repeated, with the token or without', async () => {

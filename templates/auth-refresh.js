@@ -135,6 +135,46 @@ export const shouldDropToken = (error, session = {}) => {
   return Boolean(session.hasToken)
 }
 
+/**
+ * Whether a failed refresh means the refresh token itself is gone.
+ *
+ * The token endpoint refuses a refresh token it no longer accepts with a 400 or
+ * a 401, and auth-next rejects without asking when the refresh token has
+ * expired. A timeout, a 5xx or the refresh limit says nothing about the token,
+ * so the session is kept for those.
+ *
+ * @param {Error} failed - What the refresh rejected with.
+ * @returns {boolean}
+ */
+export const refreshRefused = (failed) => {
+  if ((failed || {}).name === 'ExpiredAuthSessionError') return true
+  const status = ((failed || {}).response || {}).status
+  return status === 400 || status === 401
+}
+
+/**
+ * The headers a request had, without its `Authorization` header in any case.
+ *
+ * @param {object} headers - The request's headers.
+ * @returns {object}
+ */
+const withoutAuthorization = (headers = {}) =>
+  Object.fromEntries(
+    Object.entries(headers).filter(([name]) => name.toLowerCase() !== 'authorization')
+  )
+
+/**
+ * The `Authorization` header a request went out with, in any case.
+ *
+ * @param {object} config - The request's axios config.
+ * @returns {string|undefined}
+ */
+const sentToken = (config) => {
+  const headers = (config || {}).headers || {}
+  const name = Object.keys(headers).find((key) => key.toLowerCase() === 'authorization')
+  return name ? headers[name] : undefined
+}
+
 export default function (context) {
   // Read `$auth` from the context when it is needed, never from the
   // arguments. The authentication module injects it after this plugin runs,
@@ -180,6 +220,12 @@ export default function (context) {
     return true
   }
 
+  // The token the session holds now, with its type prefix, as a request sends it.
+  const currentToken = () => {
+    const token = (((auth() || {}).strategy || {}).token || {}).get
+    return token ? auth().strategy.token.get() : undefined
+  }
+
   const session = () => {
     const $auth = auth()
     const strategy = ($auth || {}).strategy
@@ -202,10 +248,19 @@ export default function (context) {
       if (!targetsBackend(error.config, instance)) throw error
 
       const dropToken = async () => {
-        if (!shouldDropToken(error, session())) throw error
-        await auth().reset()
-        const headers = { ...error.config.headers }
-        delete headers.Authorization
+        // Reads refused together share one failed refresh, and the first to get
+        // here resets the session. The others were still refused for a token,
+        // so what they sent decides, not what the session holds by then.
+        const current = session()
+        const sent = sentToken(error.config)
+        const eligible = { ...current, hasToken: current.hasToken || Boolean(sent) }
+        if (!shouldDropToken(error, eligible)) throw error
+        // Reset only the session the read was refused for. A sign-in that
+        // stored a new token meanwhile is another session, and is kept.
+        if (current.hasToken && (!sent || sent === currentToken())) {
+          await auth().reset()
+        }
+        const headers = withoutAuthorization(error.config.headers)
         try {
           return await instance.request({ ...error.config, headers, [RETRIED]: true })
         } catch (failed) {
@@ -218,6 +273,9 @@ export default function (context) {
       try {
         await refresh()
       } catch (failed) {
+        // A refresh that failed for another reason, such as a timeout, leaves
+        // the session alone, and the caller sees the original answer.
+        if (!refreshRefused(failed)) throw error
         // The refresh token is gone too. That is the real sign-out. The visitor
         // can still read what's public, and sign in again.
         return dropToken()
