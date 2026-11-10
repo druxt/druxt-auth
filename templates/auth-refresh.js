@@ -175,6 +175,53 @@ const sentToken = (config) => {
   return name ? headers[name] : undefined
 }
 
+/**
+ * Refreshes shared between server renders, by the session that spends them.
+ *
+ * Nuxt runs this plugin once per server render, so state inside it is one
+ * render's. Several renders for one browser, as several tabs send, all hold
+ * the same refresh token, and Simple OAuth rotates it on first use: the first
+ * render's refresh succeeds and every other render's is refused. Kept here, a
+ * refresh lives as long as the server process, and every render of the same
+ * session takes its result, while it runs and for GRACE after it ends.
+ */
+const shared = new Map()
+
+/**
+ * Starts the refresh for a refresh token, or joins the one already running or
+ * just finished for it.
+ *
+ * @param {string} key - The session spending the refresh.
+ * @param {Function} start - Starts a refresh, resolving with the token response.
+ * @returns {{ promise: Promise, own: boolean }} The refresh, and whether this
+ *   caller started it.
+ */
+export const shareRefresh = (key, start) => {
+  const now = Date.now()
+  for (const [name, entry] of shared) {
+    if (entry.settledAt && now - entry.settledAt > GRACE) shared.delete(name)
+  }
+  const found = shared.get(key)
+  if (found) return { promise: found.promise, own: false }
+
+  const entry = { settledAt: 0 }
+  const settle = () => {
+    entry.settledAt = Date.now()
+  }
+  entry.promise = start().then(
+    (response) => {
+      settle()
+      return response
+    },
+    (error) => {
+      settle()
+      throw error
+    }
+  )
+  shared.set(key, entry)
+  return { promise: entry.promise, own: true }
+}
+
 export default function (context) {
   // Read `$auth` from the context when it is needed, never from the
   // arguments. The authentication module injects it after this plugin runs,
@@ -187,6 +234,43 @@ export default function (context) {
   // two of them holding a token that no longer works.
   let refreshing = null
   let refreshedAt = 0
+
+  // This render's refresh, joined with any other render's for the same
+  // refresh token. A render that joins takes the token response the other
+  // render got, and stores it as its own, so its answer sets the new tokens on
+  // the browser too.
+  const refreshShared = () => {
+    const $auth = auth()
+    const strategy = ($auth || {}).strategy || {}
+    const refreshToken = ((strategy.refreshToken || {}).get || (() => null))()
+    const token = ((strategy.token || {}).get || (() => null))()
+    // Only a real refresh token is shared. A scheme that needs none, such as
+    // auth-next's LaravelJWT, stores `true` for every user, and sharing on
+    // that would hand one user's tokens to another.
+    if (
+      typeof refreshToken !== 'string' ||
+      refreshToken === 'true' ||
+      typeof strategy.updateTokens !== 'function'
+    ) {
+      return $auth.refreshTokens()
+    }
+    // Renders of one browser send the same cookies, so they hold the same
+    // strategy, refresh token and access token. Keying on all three keeps
+    // anything else apart.
+    const key = JSON.stringify([strategy.name, refreshToken, token])
+    const { promise, own } = shareRefresh(key, () => $auth.refreshTokens())
+    if (own) return promise
+    return promise.then((response) => {
+      // The response belongs to the session that held this refresh token. A
+      // sign-in that stored another while this render waited is newer, so it
+      // is kept.
+      if (response && strategy.refreshToken.get() === refreshToken) {
+        strategy.updateTokens(response)
+      }
+      return response
+    })
+  }
+
   const refresh = () => {
     // Just refreshed, so the token in hand is the one a refresh would fetch.
     // Retry with it rather than rotating the tokens out from under whoever
@@ -196,8 +280,7 @@ export default function (context) {
     }
     if (!refreshing) {
       if (!allowed()) return Promise.reject(new Error('refresh limit'))
-      refreshing = auth()
-        .refreshTokens()
+      refreshing = refreshShared()
         .then((result) => {
           refreshedAt = Date.now()
           return result

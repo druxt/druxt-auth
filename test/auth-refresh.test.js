@@ -569,3 +569,214 @@ describe('Attaching the interceptor', () => {
     expect(druxtAxios.interceptors.response.use).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('Sharing a refresh across server renders', () => {
+  afterEach(() => jest.restoreAllMocks())
+
+  // One render: its own $auth and axios instance, as Nuxt builds per request.
+  // Every render of one browser holds the same refresh token.
+  const render = ({
+    refreshToken,
+    refreshTokens,
+    access = 'Bearer revoked',
+  }) => {
+    let onRejected
+    let token = access
+    const instance = {
+      interceptors: {
+        response: {
+          use: (_, rejected) => {
+            onRejected = rejected
+          },
+        },
+      },
+      request: jest.fn(() => Promise.resolve('ok')),
+    }
+    const strategy = {
+      options: { endpoints: { token: 'https://cms/oauth/token' } },
+      refreshToken: { get: () => refreshToken },
+      token: { get: () => token },
+      updateTokens: jest.fn((response) => {
+        token = `Bearer ${response.data.access_token}`
+      }),
+    }
+    const $auth = {
+      loggedIn: true,
+      strategy,
+      reset: jest.fn(() => Promise.resolve()),
+      refreshTokens: jest.fn(() =>
+        refreshTokens().then((response) => {
+          strategy.updateTokens(response)
+          return response
+        })
+      ),
+    }
+    plugin({ $druxt: { axios: instance }, $auth })
+    return { instance, strategy, $auth, reject: (e) => onRejected(e) }
+  }
+
+  const issued = (access) => ({
+    data: { access_token: access, refresh_token: `${access}-refresh` },
+  })
+
+  test('renders refused at once refresh once, and each takes the new token', async () => {
+    let release
+    const refreshTokens = jest.fn(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve(issued('fresh'))
+        })
+    )
+    const renders = [1, 2, 3, 4].map(() =>
+      render({ refreshToken: 'shared-1', refreshTokens })
+    )
+
+    const replays = renders.map((r) =>
+      r.reject(answer(401, { url: '/router/translate-path' }))
+    )
+    release()
+    await expect(Promise.all(replays)).resolves.toEqual([
+      'ok',
+      'ok',
+      'ok',
+      'ok',
+    ])
+
+    expect(refreshTokens).toHaveBeenCalledTimes(1)
+    renders.forEach(({ instance, strategy }) => {
+      // Each render sets the tokens on its own response, so every one of the
+      // browser's answers carries them.
+      expect(strategy.updateTokens).toHaveBeenCalledWith(issued('fresh'))
+      expect(instance.request.mock.calls[0][0].headers.Authorization).toBe(
+        'Bearer fresh'
+      )
+    })
+  })
+
+  test('a render refused just after another refreshed takes that refresh', async () => {
+    const refreshTokens = jest.fn(() => Promise.resolve(issued('fresh')))
+    const first = render({ refreshToken: 'shared-2', refreshTokens })
+    await first.reject(answer(401, { url: '/a' }))
+
+    const later = render({ refreshToken: 'shared-2', refreshTokens })
+    await expect(later.reject(answer(401, { url: '/b' }))).resolves.toBe('ok')
+    expect(refreshTokens).toHaveBeenCalledTimes(1)
+    expect(later.strategy.updateTokens).toHaveBeenCalledWith(issued('fresh'))
+  })
+
+  test('a refresh past the grace window is not shared', async () => {
+    const now = Date.now()
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(now)
+    const refreshTokens = jest.fn(() => Promise.resolve(issued('fresh')))
+    await render({ refreshToken: 'shared-3', refreshTokens }).reject(
+      answer(401, { url: '/a' })
+    )
+
+    clock.mockReturnValue(now + GRACE + 1)
+    await render({ refreshToken: 'shared-3', refreshTokens }).reject(
+      answer(401, { url: '/b' })
+    )
+    expect(refreshTokens).toHaveBeenCalledTimes(2)
+  })
+
+  test('renders of different sessions do not share', async () => {
+    const refreshTokens = jest.fn(() => Promise.resolve(issued('fresh')))
+    await Promise.all([
+      render({ refreshToken: 'session-a', refreshTokens }).reject(
+        answer(401, { url: '/a' })
+      ),
+      render({ refreshToken: 'session-b', refreshTokens }).reject(
+        answer(401, { url: '/a' })
+      ),
+    ])
+    expect(refreshTokens).toHaveBeenCalledTimes(2)
+  })
+
+  test('a render whose session changed while it waited keeps its newer tokens', async () => {
+    let release
+    const refreshTokens = jest.fn(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve(issued('fresh'))
+        })
+    )
+    const owner = render({ refreshToken: 'shared-5', refreshTokens })
+    const joined = render({ refreshToken: 'shared-5', refreshTokens })
+    let joinedRefreshToken = 'shared-5'
+    joined.strategy.refreshToken.get = () => joinedRefreshToken
+
+    const replays = [owner, joined].map((r) =>
+      r.reject(answer(401, { url: '/router/translate-path' }))
+    )
+    // A sign-in stores a new session on the joined render before the shared
+    // refresh answers.
+    await Promise.resolve()
+    joinedRefreshToken = 'signed-in-again'
+    release()
+    await Promise.all(replays)
+
+    expect(refreshTokens).toHaveBeenCalledTimes(1)
+    expect(owner.strategy.updateTokens).toHaveBeenCalledWith(issued('fresh'))
+    expect(joined.strategy.updateTokens).not.toHaveBeenCalled()
+  })
+
+  test('renders of different users never share, even with the same refresh marker', async () => {
+    // A scheme that needs no refresh token, such as auth-next's LaravelJWT,
+    // stores `true` for every user.
+    const refreshTokens = jest.fn(() => Promise.resolve(issued('fresh')))
+    for (const marker of [true, 'true']) {
+      refreshTokens.mockClear()
+      const alice = render({
+        refreshToken: marker,
+        refreshTokens,
+        access: 'Bearer alice',
+      })
+      const bob = render({
+        refreshToken: marker,
+        refreshTokens,
+        access: 'Bearer bob',
+      })
+      await Promise.all([
+        alice.reject(answer(401, { url: '/a' })),
+        bob.reject(answer(401, { url: '/a' })),
+      ])
+      expect(refreshTokens).toHaveBeenCalledTimes(2)
+    }
+  })
+
+  test('renders of different users holding one refresh token do not share', async () => {
+    const refreshTokens = jest.fn(() => Promise.resolve(issued('fresh')))
+    const alice = render({
+      refreshToken: 'shared-6',
+      refreshTokens,
+      access: 'Bearer alice',
+    })
+    const bob = render({
+      refreshToken: 'shared-6',
+      refreshTokens,
+      access: 'Bearer bob',
+    })
+    await Promise.all([
+      alice.reject(answer(401, { url: '/a' })),
+      bob.reject(answer(401, { url: '/a' })),
+    ])
+    expect(refreshTokens).toHaveBeenCalledTimes(2)
+  })
+
+  test('a refused refresh is shared too, and every render goes on signed out', async () => {
+    const refreshTokens = jest.fn(() => Promise.reject(refusedRefresh()))
+    const renders = [1, 2].map(() =>
+      render({ refreshToken: 'shared-4', refreshTokens })
+    )
+    const reads = renders.map((r) =>
+      r.reject(
+        answer(401, {
+          url: '/router/translate-path',
+          headers: { Authorization: 'Bearer revoked' },
+        })
+      )
+    )
+    await expect(Promise.all(reads)).resolves.toEqual(['ok', 'ok'])
+    expect(refreshTokens).toHaveBeenCalledTimes(1)
+  })
+})
