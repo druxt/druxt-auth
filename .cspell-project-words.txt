@@ -9,6 +9,7 @@ druxt
 druxttest
 knip
 langcode
+Laravel
 lndo
 markdownlint
 networkidle

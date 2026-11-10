@@ -176,14 +176,14 @@ const sentToken = (config) => {
 }
 
 /**
- * Refreshes shared between server renders, by the refresh token they spend.
+ * Refreshes shared between server renders, by the session that spends them.
  *
  * Nuxt runs this plugin once per server render, so state inside it is one
  * render's. Several renders for one browser, as several tabs send, all hold
  * the same refresh token, and Simple OAuth rotates it on first use: the first
  * render's refresh succeeds and every other render's is refused. Kept here, a
- * refresh lives as long as the server process, and every render holding that
- * refresh token takes its result, while it runs and for GRACE after it ends.
+ * refresh lives as long as the server process, and every render of the same
+ * session takes its result, while it runs and for GRACE after it ends.
  */
 const shared = new Map()
 
@@ -191,7 +191,7 @@ const shared = new Map()
  * Starts the refresh for a refresh token, or joins the one already running or
  * just finished for it.
  *
- * @param {string} key - The refresh token being spent.
+ * @param {string} key - The session spending the refresh.
  * @param {Function} start - Starts a refresh, resolving with the token response.
  * @returns {{ promise: Promise, own: boolean }} The refresh, and whether this
  *   caller started it.
@@ -242,16 +242,29 @@ export default function (context) {
   const refreshShared = () => {
     const $auth = auth()
     const strategy = ($auth || {}).strategy || {}
-    const key = ((strategy.refreshToken || {}).get || (() => null))()
-    if (!key || typeof strategy.updateTokens !== 'function') {
+    const refreshToken = ((strategy.refreshToken || {}).get || (() => null))()
+    const token = ((strategy.token || {}).get || (() => null))()
+    // Only a real refresh token is shared. A scheme that needs none, such as
+    // auth-next's LaravelJWT, stores `true` for every user, and sharing on
+    // that would hand one user's tokens to another.
+    if (
+      typeof refreshToken !== 'string' ||
+      refreshToken === 'true' ||
+      typeof strategy.updateTokens !== 'function'
+    ) {
       return $auth.refreshTokens()
     }
+    // Renders of one browser send the same cookies, so they hold the same
+    // strategy, refresh token and access token. Keying on all three keeps
+    // anything else apart.
+    const key = JSON.stringify([strategy.name, refreshToken, token])
     const { promise, own } = shareRefresh(key, () => $auth.refreshTokens())
     if (own) return promise
     return promise.then((response) => {
-      // The response belongs to the session that held `key`. A sign-in that
-      // stored another while this render waited is newer, so it is kept.
-      if (response && strategy.refreshToken.get() === key) {
+      // The response belongs to the session that held this refresh token. A
+      // sign-in that stored another while this render waited is newer, so it
+      // is kept.
+      if (response && strategy.refreshToken.get() === refreshToken) {
         strategy.updateTokens(response)
       }
       return response

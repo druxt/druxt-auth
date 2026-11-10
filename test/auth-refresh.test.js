@@ -575,9 +575,13 @@ describe('Sharing a refresh across server renders', () => {
 
   // One render: its own $auth and axios instance, as Nuxt builds per request.
   // Every render of one browser holds the same refresh token.
-  const render = ({ refreshToken, refreshTokens }) => {
+  const render = ({
+    refreshToken,
+    refreshTokens,
+    access = 'Bearer revoked',
+  }) => {
     let onRejected
-    let token = 'Bearer revoked'
+    let token = access
     const instance = {
       interceptors: {
         response: {
@@ -714,6 +718,49 @@ describe('Sharing a refresh across server renders', () => {
     expect(refreshTokens).toHaveBeenCalledTimes(1)
     expect(owner.strategy.updateTokens).toHaveBeenCalledWith(issued('fresh'))
     expect(joined.strategy.updateTokens).not.toHaveBeenCalled()
+  })
+
+  test('renders of different users never share, even with the same refresh marker', async () => {
+    // A scheme that needs no refresh token, such as auth-next's LaravelJWT,
+    // stores `true` for every user.
+    const refreshTokens = jest.fn(() => Promise.resolve(issued('fresh')))
+    for (const marker of [true, 'true']) {
+      refreshTokens.mockClear()
+      const alice = render({
+        refreshToken: marker,
+        refreshTokens,
+        access: 'Bearer alice',
+      })
+      const bob = render({
+        refreshToken: marker,
+        refreshTokens,
+        access: 'Bearer bob',
+      })
+      await Promise.all([
+        alice.reject(answer(401, { url: '/a' })),
+        bob.reject(answer(401, { url: '/a' })),
+      ])
+      expect(refreshTokens).toHaveBeenCalledTimes(2)
+    }
+  })
+
+  test('renders of different users holding one refresh token do not share', async () => {
+    const refreshTokens = jest.fn(() => Promise.resolve(issued('fresh')))
+    const alice = render({
+      refreshToken: 'shared-6',
+      refreshTokens,
+      access: 'Bearer alice',
+    })
+    const bob = render({
+      refreshToken: 'shared-6',
+      refreshTokens,
+      access: 'Bearer bob',
+    })
+    await Promise.all([
+      alice.reject(answer(401, { url: '/a' })),
+      bob.reject(answer(401, { url: '/a' })),
+    ])
+    expect(refreshTokens).toHaveBeenCalledTimes(2)
   })
 
   test('a refused refresh is shared too, and every render goes on signed out', async () => {
