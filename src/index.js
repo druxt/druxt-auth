@@ -52,6 +52,8 @@ const NuxtModule = function (moduleOptions = {}) {
       // proxies Drupal's own pages needs the session too, and sets this.
       passwordSession: undefined,
       scope: undefined,
+      // Druxt's store is cleared on sign-in and sign-out unless this is false.
+      clearCache: undefined,
       ...((this.options.druxt || {}).auth || {}),
       ...moduleOptions,
     },
@@ -291,6 +293,17 @@ const NuxtModule = function (moduleOptions = {}) {
     mode: 'all',
     options,
   })
+
+  // Clear Druxt's store when the visitor signs in or out, so content loaded
+  // under one session isn't shown under the other. A site that manages its
+  // own cache sets `clearCache: false`.
+  if (options.auth.clearCache !== false) {
+    this.addPlugin({
+      src: resolve(__dirname, '../templates/clear-cache.js'),
+      fileName: 'druxt-auth-clear-cache.js',
+      mode: 'client',
+    })
+  }
 
   // Register the components directory, so a site overrides a component by
   // dropping its own of the same name into `components/`.
