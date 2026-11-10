@@ -249,7 +249,11 @@ export default function (context) {
     const { promise, own } = shareRefresh(key, () => $auth.refreshTokens())
     if (own) return promise
     return promise.then((response) => {
-      if (response) strategy.updateTokens(response)
+      // The response belongs to the session that held `key`. A sign-in that
+      // stored another while this render waited is newer, so it is kept.
+      if (response && strategy.refreshToken.get() === key) {
+        strategy.updateTokens(response)
+      }
       return response
     })
   }

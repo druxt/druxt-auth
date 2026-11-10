@@ -688,6 +688,34 @@ describe('Sharing a refresh across server renders', () => {
     expect(refreshTokens).toHaveBeenCalledTimes(2)
   })
 
+  test('a render whose session changed while it waited keeps its newer tokens', async () => {
+    let release
+    const refreshTokens = jest.fn(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve(issued('fresh'))
+        })
+    )
+    const owner = render({ refreshToken: 'shared-5', refreshTokens })
+    const joined = render({ refreshToken: 'shared-5', refreshTokens })
+    let joinedRefreshToken = 'shared-5'
+    joined.strategy.refreshToken.get = () => joinedRefreshToken
+
+    const replays = [owner, joined].map((r) =>
+      r.reject(answer(401, { url: '/router/translate-path' }))
+    )
+    // A sign-in stores a new session on the joined render before the shared
+    // refresh answers.
+    await Promise.resolve()
+    joinedRefreshToken = 'signed-in-again'
+    release()
+    await Promise.all(replays)
+
+    expect(refreshTokens).toHaveBeenCalledTimes(1)
+    expect(owner.strategy.updateTokens).toHaveBeenCalledWith(issued('fresh'))
+    expect(joined.strategy.updateTokens).not.toHaveBeenCalled()
+  })
+
   test('a refused refresh is shared too, and every render goes on signed out', async () => {
     const refreshTokens = jest.fn(() => Promise.reject(refusedRefresh()))
     const renders = [1, 2].map(() =>
