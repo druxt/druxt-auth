@@ -1,5 +1,12 @@
 # druxt-auth
 
+## [0.5.2] - 2026-11-10
+
+### Patch Changes
+
+- A token Drupal rejects no longer breaks public pages. When the token endpoint refuses its refresh token, the session ends and the request is repeated anonymously, so the visitor can read the site and sign in again. A refresh that fails for another reason, such as a timeout, keeps the session. ([`dc6c33f`](https://github.com/druxt/druxt-auth/commit/dc6c33f))
+- Several server renders for one browser, such as tabs opening at once after Drupal revoked the visitor's access tokens, now recover with one refresh. Before, each render spent the same refresh token, Drupal accepted only the first, and the rest failed. ([#105](https://github.com/druxt/druxt-auth/issues/105), [`25a2ade`](https://github.com/druxt/druxt-auth/commit/25a2ade))
+
 ## [0.5.1] - 2026-10-23
 
 ### Patch Changes
@@ -59,6 +66,7 @@
 - Added support for OAuth2 Authorization Code grant with PKCE. ([`f6a7352`](https://github.com/druxt/druxt-auth/commit/f6a7352))
 - Initial release.
 
+[0.5.2]: https://github.com/druxt/druxt-auth/compare/0.5.1...0.5.2
 [0.5.1]: https://github.com/druxt/druxt-auth/compare/0.5.0...0.5.1
 [0.5.0]: https://github.com/druxt/druxt-auth/compare/0.4.0...0.5.0
 [0.4.0]: https://github.com/druxt/druxt-auth/compare/0.3.0...0.4.0
