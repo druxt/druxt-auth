@@ -253,8 +253,12 @@ holding the string `"false"`. The keys are named for the strategy, so
 `auth._token.drupal-authorization_code`, not `auth._token.druxt`.
 
 `example/nuxt/pages/user/logout.vue` is a logout page that clears them and
-forces a full page load, which is also what empties the DruxtStore of content
-fetched while logged in.
+forces a full page load.
+
+Content Druxt fetched while signed in is cleared on its own. Signing in or out
+dispatches Druxt's `druxt/clearCache`, so the next render fetches again with
+the new session, on Druxt 0.25.0 and later. A site that manages its own cache
+sets `clearCache: false`.
 
 ## Signing in
 
@@ -335,4 +339,5 @@ Upstream this is [drupal.org issue 2946882](https://www.drupal.org/i/2946882).
 | `passwordClientId` | `string`           | No       | `clientId`    | The Consumer the password grant authenticates as, when it differs from the browser flow's.                                                                                                                               |
 | `clientSecret`     | `string`           | No       | `undefined`   | The Drupal Consumer API secret. The password grant sends it, and a public Consumer needs none.                                                                                                                           |
 | `login`            | `string`/`boolean` | No       | `/user/login` | Where the sign in page goes. `false` leaves it out. A page the site already has always wins.                                                                                                                             |
+| `clearCache`       | `boolean`          | No       | `true`        | Clears Druxt's stored content when the visitor signs in or out, so content loaded under one session isn't shown under the other. Needs Druxt 0.25.0 or later.                                                            |
 | `scope`            | `array`            | No       | `undefined`   | The OAuth scopes to request. When unset, no `scope` parameter is sent and Simple OAuth 6 falls back to the consumer's own **Authorization code scopes** - so either set this option or configure scopes on the consumer. |

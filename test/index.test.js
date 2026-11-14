@@ -97,6 +97,26 @@ describe('DruxtAuth Nuxt module', () => {
     expect(res.end).toBeCalledWith('true')
   })
 
+  test('clears Druxt on sign-in and sign-out, unless a site turns it off', () => {
+    const clearCache = () =>
+      mock.addPlugin.mock.calls.filter(([plugin]) =>
+        plugin.src.endsWith('/templates/clear-cache.js')
+      )
+
+    DruxtAuthModule.call(mock, { clientId: 'mock-client-id' })
+    expect(clearCache()).toHaveLength(1)
+    // The browser is where a session changes. A server render starts each
+    // request with an empty store.
+    expect(clearCache()[0][0].mode).toBe('client')
+
+    mock.addPlugin.mockClear()
+    DruxtAuthModule.call(mock, {
+      clientId: 'mock-client-id',
+      clearCache: false,
+    })
+    expect(clearCache()).toHaveLength(0)
+  })
+
   test('API Proxy - default', async () => {
     mock.options.druxt.proxy = { api: true }
 

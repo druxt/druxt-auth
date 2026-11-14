@@ -90,7 +90,8 @@
     "siroc": "0.16.0",
     "vue": "2.7.16",
     "vue-jest": "3.0.7",
-    "vue-template-compiler": "2.7.16"
+    "vue-template-compiler": "2.7.16",
+    "vuex": "3.6.2"
   },
   "peerDependencies": {
     "axios": ">=0.27.2 <1",
