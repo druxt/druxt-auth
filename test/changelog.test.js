@@ -187,3 +187,47 @@ test('a fence does not close on a line indented four spaces', async () => {
   expect(line).toMatch(/\/commit\/773a7b76/)
   expect(line).toContain(`Commit: ${SHA}`)
 })
+
+test('an issue ref in an entity, an email autolink, a title or a reference link stays as written', async () => {
+  const definition = '\n\n[guide #123]: https://example.org/guide'
+  for (const [summary, kept] of [
+    ['fix: show &#123; for #45', '&#123;'],
+    [
+      'fix: contact <release#123@example.org> for #45',
+      '<release#123@example.org>',
+    ],
+    [
+      'fix: see [the `]` guide #123](https://example.org) for #45',
+      '[the `]` guide #123](https://example.org)',
+    ],
+    [
+      'fix: see [guide](https://example.org "version) #123") for #45',
+      '[guide](https://example.org "version) #123")',
+    ],
+    [`fix: see [x][guide #123] for #45${definition}`, '[x][guide #123]'],
+    [`fix: see [guide #123][] for #45${definition}`, '[guide #123][]'],
+    [`fix: see [guide #123] for #45${definition}`, '[guide #123] for'],
+  ]) {
+    const line = await getReleaseLine({ summary, commit: LATER })
+    expect(line).toContain(kept)
+    expect(line).toMatch(/\[#45\]\(.*\/issues\/45\)/)
+  }
+})
+
+test('a fence in a list item ends with the item, so the footers after it are read', async () => {
+  const line = await getReleaseLine({
+    summary: `fix: drop the old API.\n\n- ~~~\n  example\n\nCommit: ${SHA}\nBREAKING CHANGE: use the new one.`,
+    commit: LATER,
+  })
+  expect(line).toMatch(/^- \*\*Breaking/)
+  expect(line).toMatch(/\/commit\/75b37680/)
+})
+
+test('a fence in a list item does not close on a line indented four spaces past the item', async () => {
+  const line = await getReleaseLine({
+    summary: `docs: show the footers.\n\n- ~~~text\n      ~~~\n  Commit: ${SHA}\n  BREAKING CHANGE: migrate\n  ~~~`,
+    commit: LATER,
+  })
+  expect(line).not.toMatch(/\*\*Breaking/)
+  expect(line).toMatch(/\/commit\/773a7b76/)
+})
