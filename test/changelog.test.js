@@ -82,7 +82,7 @@ test('a link whose destination holds parentheses stays as written', async () => 
     '[issue #123][guide]',
   ]) {
     const line = await getReleaseLine({
-      summary: `fix: see ${link} for #45`,
+      summary: `fix: see ${link} for #45\n\n[guide]: https://example.org/guide`,
       commit: LATER,
     })
     expect(line).toContain(link)
@@ -143,4 +143,47 @@ test('a code span or a fence in a list item does not hide the footers after it',
     expect(line).toMatch(/^- \*\*Breaking/)
     expect(line).toMatch(/\/commit\/75b37680/)
   }
+})
+
+test('a link label with code, a quoted title or an angle-bracket destination stays as written', async () => {
+  for (const link of [
+    '[guide `[`](guide#123)',
+    '[guide](guide#123 "release (")',
+    '[guide](<a)b#123>)',
+  ]) {
+    const line = await getReleaseLine({
+      summary: `fix: see ${link} for #45`,
+      commit: LATER,
+    })
+    expect(line).toContain(link)
+    expect(line).toMatch(/\[#45\]\(.*\/issues\/45\)/)
+  }
+})
+
+test('an escaped or bracketed issue ref stays as written', async () => {
+  const line = await getReleaseLine({
+    summary: 'fix: see \\#12 and [#7] for #45',
+    commit: LATER,
+  })
+  expect(line).toContain('\\#12 and [#7]')
+  expect(line).toMatch(/\[#45\]\(.*\/issues\/45\)/)
+})
+
+test('an indented line that only looks like a list fence does not hide the footers after it', async () => {
+  const line = await getReleaseLine({
+    summary: `fix: drop the old API.\n\n    - ~~~\n\nCommit: ${SHA}\nBREAKING CHANGE: use the new one.`,
+    commit: LATER,
+  })
+  expect(line).toMatch(/^- \*\*Breaking/)
+  expect(line).toMatch(/\/commit\/75b37680/)
+})
+
+test('a fence does not close on a line indented four spaces', async () => {
+  const line = await getReleaseLine({
+    summary: `docs: show the footers.\n\n~~~text\n    ~~~\nCommit: ${SHA}\nBREAKING CHANGE: migrate\n~~~`,
+    commit: LATER,
+  })
+  expect(line).not.toMatch(/\*\*Breaking/)
+  expect(line).toMatch(/\/commit\/773a7b76/)
+  expect(line).toContain(`Commit: ${SHA}`)
 })
