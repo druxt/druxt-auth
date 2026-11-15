@@ -241,3 +241,12 @@ test('a Commit line or a breaking-change footer in an HTML block stays an exampl
   expect(line).toMatch(/\/commit\/773a7b76/)
   expect(line).toContain(`Commit: ${SHA}`)
 })
+
+test('an issue ref inside an HTML link stays as written', async () => {
+  const line = await getReleaseLine({
+    summary: 'fix: see <a href="/guide">#123</a> for #45',
+    commit: LATER,
+  })
+  expect(line).toContain('<a href="/guide">#123</a>')
+  expect(line).toMatch(/\[#45\]\(.*\/issues\/45\)/)
+})
