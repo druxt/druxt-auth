@@ -254,11 +254,11 @@ test('an issue ref inside an HTML link stays as written', async () => {
 test('an issue ref in a bare URL stays as written', async () => {
   const line = await getReleaseLine({
     summary:
-      'fix: see https://example.org/guide#123 and www.example.org/a#7 for #45',
+      'fix: see https://example.org/guide#123, www.example.org/a#7 and https://example.org/a(b(c))#8 for #45',
     commit: LATER,
   })
   expect(line).toContain(
-    'https://example.org/guide#123 and www.example.org/a#7 for'
+    'https://example.org/guide#123, www.example.org/a#7 and https://example.org/a(b(c))#8 for'
   )
   expect(line).toMatch(/\[#45\]\(.*\/issues\/45\)/)
 })
