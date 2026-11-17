@@ -262,3 +262,28 @@ test('an issue ref in a bare URL stays as written', async () => {
   )
   expect(line).toMatch(/\[#45\]\(.*\/issues\/45\)/)
 })
+
+test('a bare URL ends at the bracket or parenthesis that closes it', async () => {
+  for (const [summary, kept, linked] of [
+    [
+      'fix: see <https://example.org/a>(#45) for #46',
+      '<https://example.org/a>',
+      ['45', '46'],
+    ],
+    [
+      'fix: see [x](https://example.org/b)#45 for #46',
+      '[x](https://example.org/b)',
+      ['45', '46'],
+    ],
+    [
+      'fix: (see https://example.org/c)#45 for #46',
+      'https://example.org/c)',
+      ['45', '46'],
+    ],
+  ]) {
+    const line = await getReleaseLine({ summary, commit: LATER })
+    expect(line).toContain(kept)
+    for (const n of linked)
+      expect(line).toMatch(new RegExp(`\\[#${n}\\]\\(.*\\/issues\\/${n}\\)`))
+  }
+})
